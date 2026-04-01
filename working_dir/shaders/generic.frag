@@ -50,7 +50,7 @@ void main(void)
 		// UV
 		case 2: fboColor = vec4(fUV, 0, 1); break;
 		// Texture Mapping without shading.
-		case 3: fboColor = texture2D(tAlbedo, fUV); break;
+		case 3: fboColor = texture(tAlbedo, fUV); break;
 		// If mode is wrong, put pure white.
 		default: fboColor = vec4(1); break;
 	}
