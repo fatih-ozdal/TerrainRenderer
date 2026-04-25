@@ -7,7 +7,6 @@
 // This is a modified version of the code from the renderer
 // https://github.com/yalcinerbora/mray
 // =======================================================================
-//
 // Fix Sized Atomic Multi-producer Multi-consumer ring buffer queue.
 // Somewhat advanced implementation. Given producer/consumer count
 // vs. queue size ratio, atomic wait amount changes.
@@ -57,10 +56,10 @@
 
 // From https://en.cppreference.com/w/cpp/thread/hardware_destructive_interference_size.html
 #ifdef __cpp_lib_hardware_interference_size
-    constexpr std::size_t CACHE_LINE = std::hardware_constructive_interference_size;
+constexpr std::size_t CACHE_LINE = std::hardware_constructive_interference_size;
 #else
-    // 64 bytes on x86-64 â”‚ L1_CACHE_BYTES â”‚ L1_CACHE_SHIFT â”‚ __cacheline_aligned â”‚ ...
-    constexpr std::size_t CACHE_LINE = 64;
+    // 64 bytes on x86-64‚ L1_CACHE_BYTES‚ L1_CACHE_SHIFT‚ __cacheline_aligned‚ etc. ...
+constexpr std::size_t CACHE_LINE = 64;
 #endif
 
 template<class T>
@@ -78,15 +77,13 @@ class MPMCQueueAtomic
     };
 
     private:
-    std::vector<QueueSlot>  data;
-    alignas(CACHE_LINE) a_uint64_t    enqueueLoc;
-    alignas(CACHE_LINE) a_uint64_t    dequeueLoc;
-    a_bool_t            isTerminated;
+    std::vector<QueueSlot>         data;
+    alignas(CACHE_LINE) a_uint64_t enqueueLoc;
+    alignas(CACHE_LINE) a_uint64_t dequeueLoc;
+    a_bool_t                       isTerminated;
 
     static uint64_t ComposeGeneration(uint64_t generation, uint64_t status);
 
-
-    
     protected:
     public:
     // Constructors & Destructor
@@ -459,11 +456,11 @@ struct TPCallable
     // Destruction is handled by shared_ptr automatically.
     template<ThreadBlockWorkC T, class R>
     TPCallable(std::shared_ptr<T> work, std::shared_ptr<std::promise<R>> p,
-               uint32_t startIn, uint32_t endIn)
+               uint32_t start, uint32_t end)
         : workFunc(work)
         , promise(p)
-        , start(startIn)
-        , end(endIn)
+        , start(start)
+        , end(end)
     {
         assert(work != nullptr);
         assert(p != nullptr);
@@ -545,7 +542,7 @@ class ThreadPool
     // issuedCounter is written by producer thread(s).
     // Putting a gap here should eliminate data transfer between
     // threads
-    alignas(CACHE_LINE)
+    alignas(std::hardware_destructive_interference_size)
     std::atomic_uint64_t                    completedTaskCount;
 
     void RestartThreadsImpl(uint32_t threadCount);

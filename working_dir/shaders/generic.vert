@@ -52,7 +52,6 @@ void main(void)
 {
 	fUV = vUV;
 	fNormal = normalize(uNormalMatrix * vNormal);
-	fNormal = vNormal;
 	// Rasterizer
 	gl_Position = uProjection * uView * uModel * vec4(vPos.xyz, 1.0f);
 }

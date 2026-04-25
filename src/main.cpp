@@ -1,11 +1,20 @@
 #include <cstdio>
 #include <array>
 
-#include "utility.h"
 #include "thread_pool.h"
 
-#include <GLFW/glfw3.h>
 #include <glm/ext.hpp> // for matrix calculation
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/quaternion.hpp>
+#include <glm/gtc/quaternion.hpp>
+
+// ============== //
+//  HW1-CODE Here //
+// ============== //
+#include "hw1.h"
+
+static constexpr double DefaultSensitivity = 0.0025;
 
 void WindowPositionCallback(GLFWwindow* wnd, int x, int y)
 {
@@ -24,14 +33,51 @@ void WindowSizeCallback(GLFWwindow* wnd, int x, int y)
 
 void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
 {
+    GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
+    float diffX = static_cast<float>(x - state.prevMouseX);
+    float diffY = static_cast<float>(y - state.prevMouseY);
+
+    if(state.mouseToggle)
+    {
+        float angX = float(-diffX * DefaultSensitivity);
+        float angY = float(-diffY * DefaultSensitivity);
+
+        // YAW
+        glm::quat deltaYaw = glm::angleAxis(angX, glm::vec3(0, 1, 0));
+        //
+        // PITCH
+        glm::quat deltaPitch = glm::angleAxis(angY, glm::vec3(1, 0, 0));
+        //
+        glm::quat newRot = deltaYaw * deltaPitch * state.cam.rotation;
+        state.cam.rotation = glm::normalize(newRot);
+    }
+    state.prevMouseX = x;
+    state.prevMouseY = y;
 }
 
 void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int)
 {
+    GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
+    if(button == GLFW_MOUSE_BUTTON_1)
+    {
+        if(action == GLFW_PRESS)    state.mouseToggle = true;
+        if(action == GLFW_RELEASE)  state.mouseToggle = false;
+    }
 }
 
 void MouseScrollCallback(GLFWwindow* wnd, double dx, double dy)
 {
+    static constexpr double DefaultZoomPercentage = 1.1;
+
+    GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
+
+
+    // Zoom to the focus until some threshold
+    glm::vec3 look = state.cam.rotation * glm::vec3(0, 0, 1);
+    if(look.length() > 0.1f)
+    {
+        state.cam.translation[2] += float(dy * DefaultZoomPercentage);
+    }
 }
 
 void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
@@ -46,27 +92,104 @@ void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int mo
     GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
     uint32_t mode = state.mode;
 
+    glm::vec3 ratio = glm::vec3(0.25f);
+    if(key == GLFW_KEY_W)
+    {
+        state.cam.translation[2] += ratio[0];
+    }
+    if(key == GLFW_KEY_S)
+    {
+        state.cam.translation[2] -= ratio[0];
+    }
+    if(key == GLFW_KEY_A)
+    {
+        state.cam.translation[0] += ratio[0];
+    }
+    if(key == GLFW_KEY_D)
+    {
+        state.cam.translation[0] -= ratio[0];
+    }
+
+
+    if(key == GLFW_KEY_E || key == GLFW_KEY_Q)
+    {
+        float rotAngle = float(DefaultSensitivity * 10);
+        rotAngle = (key == GLFW_KEY_Q) ? -rotAngle : rotAngle;
+        //
+        glm::quat deltaRoll = glm::angleAxis(rotAngle, glm::vec3(0, 0, 1));
+        glm::quat newRot = deltaRoll * state.cam.rotation;
+        //
+        state.cam.rotation = glm::normalize(newRot);
+    }
+
     if(action != GLFW_RELEASE) return;
 
-    if(key == GLFW_KEY_P) mode = (mode == 3) ? 0 : (mode + 1);
-    if(key == GLFW_KEY_O) mode = (mode == 0) ? 3 : (mode - 1);
+    if(key == GLFW_KEY_P) mode = (mode == 2) ? 0 : (mode + 1);
+    if(key == GLFW_KEY_O) mode = (mode == 0) ? 2 : (mode - 1);
+    if(key == GLFW_KEY_L) state.wireframe = !state.wireframe;
+
+    // Tesselation
+    if(key == GLFW_KEY_J) state.vertexPerPatch /= 2;
+    if(key == GLFW_KEY_K) state.vertexPerPatch *= 2;
+    // Vertex shader height adjust
+    if(key == GLFW_KEY_KP_SUBTRACT) state.heightScale /= 2.0f;
+    if(key == GLFW_KEY_KP_ADD) state.heightScale *= 2.0f;
+    //
+    if(key == GLFW_KEY_ENTER)
+    {
+        state.fullscreen = !state.fullscreen;
+        if(state.fullscreen)
+            state.notFullScreenWndParams = state.curWndParams;
+    }
 
     state.mode = mode;
+}
+
+void ChangeFullscreen(bool& isFullscreen, GLState& state)
+{
+    if(isFullscreen != state.fullscreen)
+    {
+        isFullscreen = state.fullscreen;
+
+        // TODO: Reason about this how to do monitor full screen
+        // according to the current monitor that the window is in.
+        // Get monitor returns null
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        WindowParams wp = state.notFullScreenWndParams;
+        if(isFullscreen)
+        {
+            wp.pos = glm::ivec2(0);
+            wp.size = glm::ivec2(mode->width, mode->height);
+        }
+        glfwSetWindowMonitor(state.window,
+                             (isFullscreen) ? monitor : nullptr,
+                             wp.pos[0], wp.pos[1],
+                             wp.size[0], wp.size[1],
+                             mode->refreshRate);
+    }
 }
 
 int main(int argc, const char* argv[])
 {
     GLState state = GLState("Terrain Renderer", 1280, 720,
                             CallbackPointersGLFW());
-    ShaderGL vShader = ShaderGL(ShaderGL::VERTEX, "shaders/generic.vert");
-    ShaderGL fShader = ShaderGL(ShaderGL::FRAGMENT, "shaders/generic.frag");
-    MeshGL mesh = MeshGL("meshes/tri.obj");
-    TextureGL tex = TextureGL("textures/mixed_brick_wall_diff_1k.png",
-                              TextureGL::LINEAR, TextureGL::REPEAT);
+    ShaderGL vShader = ShaderGL(ShaderGL::VERTEX, "shaders/terrain.vert");
+    ShaderGL fShader = ShaderGL(ShaderGL::FRAGMENT, "shaders/terrain.frag");
     // Set unchanged state(s)
     glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
     glFrontFace(GL_CCW);
+
+    ThreadPool threadPool({.threadCount = std::thread::hardware_concurrency()});
+    bool isFullscreen = state.fullscreen;
+
+    HW1 hw1(threadPool, state);
+
+    // ================ //
+    //     GUI Init     //
+    // ================ //
+    UserInterface ui = UserInterface(state);
 
     // =============== //
     //   RENDER LOOP   //
@@ -76,65 +199,35 @@ int main(int argc, const char* argv[])
         // Poll inputs from the OS via GLFW
         glfwPollEvents();
 
-        // Object-common matrices
-        float aspectRatio = float(state.curWndParams.fbSize[0]) / float(state.curWndParams.fbSize[1]);
-        glm::mat4x4 proj = glm::perspective(glm::radians(50.0f), aspectRatio,
-                                            0.1f, 1000.0f);
-        glm::mat4x4 view = glm::lookAt(state.cam.pos, state.cam.gaze, state.cam.up);
+        // Set/Reset fullscreen
+        ChangeFullscreen(isFullscreen, state);
 
-        // Start rendering
-        glViewport(0, 0,
-                   state.curWndParams.fbSize[0],
-                   state.curWndParams.fbSize[1]);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        glEnable(GL_CULL_FACE);
+        // ================ //
+        //     GUI START    //
+        // ================ //
+        ui.BeginFrame();
 
-        // Bind shaders and related uniforms / textures
-        // Move this somewhere proper later.
-        // These must match the uniform "location" at the shader(s).
-        // Vertex
-        static constexpr GLuint U_TRANSFORM_MODEL   = 0;
-        static constexpr GLuint U_TRANSFORM_VIEW    = 1;
-        static constexpr GLuint U_TRANSFORM_PROJ    = 2;
-        static constexpr GLuint U_TRANSFORM_NORMAL  = 3;
-        // Fragment
-        static constexpr GLuint T_ALBEDO = 0;
-        static constexpr GLuint U_MODE = 0;
 
-        // glActiveShaderProgram makes "glUniform" family of commands
-        // to effect the selected shader
-        glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT, vShader.shaderId);
-        glActiveShaderProgram(state.renderPipeline, vShader.shaderId);
-        {
-            // Don't move the triangle
-            glm::mat4x4 model = glm::identity<glm::mat4x4>();
-            // Normal local->world matrix of the object
-            glm::mat3x3 normalMatrix = glm::inverseTranspose(model);
-            glUniformMatrix4fv(U_TRANSFORM_MODEL, 1, false, glm::value_ptr(model));
-            glUniformMatrix4fv(U_TRANSFORM_VIEW, 1, false, glm::value_ptr(view));
-            glUniformMatrix4fv(U_TRANSFORM_PROJ, 1, false, glm::value_ptr(proj));
-            glUniformMatrix3fv(U_TRANSFORM_NORMAL, 1, false, glm::value_ptr(normalMatrix));
-        }
-        // Fragment shader
-        glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, fShader.shaderId);
-        glActiveShaderProgram(state.renderPipeline, fShader.shaderId);
-        {
-            // Bind texture(s)
-            // You can bind texture via GL_TEXTURE0 + x where x is the bind point at the shader
-            // you do not need to explicitly say GL_TEXTURE1 GL_TEXTURE2 etc.
-            // Here is a demonstration as static assertions.
-            static_assert(GL_TEXTURE0 + 1 == GL_TEXTURE1, "OGL API is wrong!");
-            static_assert(GL_TEXTURE0 + 2 == GL_TEXTURE2, "OGL API is wrong!");
-            static_assert(GL_TEXTURE0 + 16 == GL_TEXTURE16, "OGL API is wrong!");
-            glActiveTexture(GL_TEXTURE0 + T_ALBEDO);
-            glBindTexture(GL_TEXTURE_2D, tex.textureId);
+        // =============== //
+        //      HW 1       //
+        // =============== //
+        hw1.Work();
 
-            glUniform1ui(U_MODE, state.mode);
-        }
-        // Bind VAO
-        glBindVertexArray(mesh.vaoId);
-        // Draw call!
-        glDrawElements(GL_TRIANGLES, GLsizei(mesh.indexCount), GL_UNSIGNED_INT, nullptr);
+        // ================ //
+        //     GUI WORK     //
+        // ================ //
+        // You can check the "imgui_demo.cpp" in the project
+        // for many GUI widgets and how to use them
+        // It is straightforward, also you can check
+        // https://github.com/ocornut/imgui/wiki/Getting-Started
+        //ImGui::ShowDemoWindow();
+
+        // ================ //
+        //      GUI END     //
+        // ================ //
+        ui.EndFrame();
+
+        // Frame End
         glfwSwapBuffers(state.window);
     }
 }

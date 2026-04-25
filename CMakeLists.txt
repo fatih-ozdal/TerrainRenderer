@@ -81,14 +81,20 @@ set(SRC_ALL
     ${CMAKE_CURRENT_SOURCE_DIR}/src/utility.h
     ${CMAKE_CURRENT_SOURCE_DIR}/src/thread_pool.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/thread_pool.h
+    # HW1 Related
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/hw1.h
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/hw1.cpp
     # For example,
     # ${CMAKE_CURRENT_SOURCE_DIR}/src/myNewFile.cpp
     )
-# Add shaders here, so that they are visible in IDE (if you use ide)
+
+# Add shaders here, so that they are visible in IDE (if you use an IDE)
 set(CENG_SHADER_DIR ${CMAKE_CURRENT_SOURCE_DIR}/working_dir/shaders)
 set(SRC_SHADERS
     ${CENG_SHADER_DIR}/generic.vert
-    ${CENG_SHADER_DIR}/generic.frag)
+    ${CENG_SHADER_DIR}/debug.frag
+    ${CENG_SHADER_DIR}/terrain.vert
+    ${CENG_SHADER_DIR}/terrain.frag)
 
 source_group("" FILES ${SRC_ALL})
 source_group("Shaders" FILES ${SRC_SHADERS})

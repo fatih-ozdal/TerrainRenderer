@@ -34,11 +34,11 @@ GLState::GLState(const char* const windowName,
                  int w, int h,
                  CallbackPointersGLFW callbacks)
     : curWndParams
-        {
-            .pos    = glm::ivec2(0),
-            .size   = glm::ivec2(0),            
-            .fbSize = glm::ivec2(w, h)
-        }
+    {
+        .pos    = glm::ivec2(0),
+        .size   = glm::ivec2(0),
+        .fbSize = glm::ivec2(w, h)
+    }
 {
     if(!glfwInit())
     {
@@ -69,12 +69,13 @@ GLState::GLState(const char* const windowName,
     //
     // Render buffer
     glfwWindowHint(GLFW_RED_BITS, 8); glfwWindowHint(GLFW_GREEN_BITS, 8);
-    glfwWindowHint(GLFW_BLUE_BITS, 8);glfwWindowHint(GLFW_ALPHA_BITS, 8);
+    glfwWindowHint(GLFW_BLUE_BITS, 8); glfwWindowHint(GLFW_ALPHA_BITS, 8);
     // Depth buffer
     glfwWindowHint(GLFW_DEPTH_BITS, 24); glfwWindowHint(GLFW_STENCIL_BITS, 8);
     //
 
-    window = glfwCreateWindow(int(w), int(h), windowName, NULL, NULL);
+    window = glfwCreateWindow(int(w), int(h), windowName,
+                              NULL, NULL);
     if(!window)
     {
         // Since the callback is set it should've printed the error
@@ -208,8 +209,8 @@ ShaderGL::ShaderGL(Type t, const std::string& path)
     glDetachShader(shaderId, shaderGL);
     glDeleteShader(shaderGL);
 
-    static const char* const VertexStr      = "Vertex";
-    static const char* const FragmentStr    = "Fragment";
+    static const char* const VertexStr = "Vertex";
+    static const char* const FragmentStr = "Fragment";
     const char* shaderTypeStr = nullptr;
     switch(t)
     {
@@ -302,7 +303,7 @@ MeshGL::MeshGL(const std::string& objPath)
             {
                 std::string_view localView = lView.substr(start, end - start);
                 const char* ptr = localView.data();
-                size_t s0  = 0;
+                size_t s0 = 0;
                 size_t s1 = localView.find_first_of('/', s0) + 1;
                 size_t s2 = localView.find_first_of('/', s1) + 1;
                 size_t s3 = end - start;
@@ -330,8 +331,8 @@ MeshGL::MeshGL(const std::string& objPath)
                 return ObjKeyType
                 {
                     // Data of OBJ file is 1-indexed, so convert.
-                    .posIndex    = pId - 1,
-                    .uvIndex     = uvId - 1,
+                    .posIndex = pId - 1,
+                    .uvIndex = uvId - 1,
                     .normalIndex = nId - 1
                 };
             };
@@ -489,7 +490,8 @@ MeshGL::MeshGL(const std::string& objPath)
 }
 
 TextureGL::TextureGL(const std::string& texPath,
-                     SampleMode sampleMode, EdgeResolve edgeResolveMode)
+                     SampleMode sampleMode, EdgeResolve edgeResolveMode,
+                     bool doLinearize)
 {
     stbi_set_flip_vertically_on_load(1);
     std::FILE* f = fopen(texPath.c_str(), "rb");
@@ -500,9 +502,12 @@ TextureGL::TextureGL(const std::string& texPath,
     }
     //
     bool is16Bit = stbi_is_16_bit_from_file(f);
+    bool isHDR   = stbi_is_hdr_from_file(f);
+
     void* rawPixels = nullptr;
-    if(is16Bit) rawPixels = stbi_load_from_file_16(f, &width, &height, &channelCount, 0);
-    else        rawPixels = stbi_load_from_file(f, &width, &height, &channelCount, 0);
+         if(is16Bit) rawPixels = stbi_load_from_file_16(f, &width, &height, &channelCount, 0);
+    else if(isHDR)   rawPixels = stbi_loadf_from_file(f, &width, &height, &channelCount, 0);
+    else             rawPixels = stbi_load_from_file(f, &width, &height, &channelCount, 0);
     //
     if(!rawPixels)
     {
@@ -517,20 +522,29 @@ TextureGL::TextureGL(const std::string& texPath,
     GLenum internalFormatSized = 0;
     GLenum internalFormat = 0;
     GLenum pixType = (is16Bit) ? GL_UNSIGNED_SHORT : GL_UNSIGNED_BYTE;
+           pixType = (isHDR)   ? GL_FLOAT : pixType;
     switch(channelCount)
     {
-        case 1: internalFormatSized = (is16Bit) ? GL_R16    : GL_R8;
-                internalFormat      = GL_RED;
-                break;
-        case 2: internalFormatSized = (is16Bit) ? GL_RG16   : GL_RG8;
-                internalFormat      = GL_RG;
-                break;
-        case 3: internalFormatSized = (is16Bit) ? GL_RGB16  : GL_RGB8;
-                internalFormat      = GL_RGB;
-                break;
-        case 4: internalFormatSized = (is16Bit) ? GL_RGBA16 : GL_RGBA8;
-                internalFormat      = GL_RGBA;
-                break;
+        case 1:
+            internalFormatSized = (is16Bit) ? GL_R16 : GL_R8;
+            internalFormatSized = (isHDR) ? GL_R32F : internalFormatSized;
+            internalFormat = GL_RED;
+            break;
+        case 2:
+            internalFormatSized = (is16Bit) ? GL_RG16 : GL_RG8;
+            internalFormatSized = (isHDR) ? GL_RG32F : internalFormatSized;
+            internalFormat = GL_RG;
+            break;
+        case 3:
+            internalFormatSized = (is16Bit) ? GL_RGB16 : GL_RGB8;
+            internalFormatSized = (isHDR) ? GL_RGB32F : internalFormatSized;
+            internalFormat = GL_RGB;
+            break;
+        case 4:
+            internalFormatSized = (is16Bit) ? GL_RGBA16 : GL_RGBA8;
+            internalFormatSized = (isHDR) ? GL_RGBA32F : internalFormatSized;
+            internalFormat = GL_RGBA;
+            break;
         default:
         {
             stbi_image_free(rawPixels);
@@ -538,6 +552,35 @@ TextureGL::TextureGL(const std::string& texPath,
             std::exit(EXIT_FAILURE);
         }
     }
+
+    if(doLinearize && !isHDR)
+    {
+        static auto GammaCorrect = [](auto pix, float factor)
+        {
+            using T = decltype(pix);
+            float linVal = pow(float(pix) / factor, 2.2f);
+            return T(std::round(linVal * factor));
+        };
+
+        uint8_t* pixels = static_cast<uint8_t*>(rawPixels);
+        for(int j = 0; j < height; j++)
+        for(int i = 0; i < width; i++)
+        for(int c = 0; c < channelCount; c++)
+        {
+            int linIndex = (j * width + i) * channelCount;
+            if(is16Bit)
+            {
+                uint16_t* pixels = static_cast<uint16_t*>(rawPixels);
+                pixels[linIndex + c] = GammaCorrect(pixels[linIndex + c], 65535.0f);
+            }
+            else
+            {
+                uint8_t* pixels = static_cast<uint8_t*>(rawPixels);
+                pixels[linIndex + c] = GammaCorrect(pixels[linIndex + c], 255.0f);
+            }
+        }
+    }
+
 
     glGenTextures(1, &textureId);
     glBindTexture(GL_TEXTURE_2D, textureId);
@@ -703,8 +746,8 @@ GeoDataDTED::GeoDataDTED(const std::string& fName)
         uint32_t checksumFile = 0;
         checksumFile |= uint32_t(checksumData[0]) << 24u;
         checksumFile |= uint32_t(checksumData[1]) << 16u;
-        checksumFile |= uint32_t(checksumData[2]) <<  8u;
-        checksumFile |= uint32_t(checksumData[3]) <<  0u;
+        checksumFile |= uint32_t(checksumData[2]) << 8u;
+        checksumFile |= uint32_t(checksumData[3]) << 0u;
         if(checksumFile != checksum)
         {
             std::fprintf(stderr, "Wrong checksum in DTED file \"%s\", "
@@ -746,16 +789,16 @@ void APIENTRY PrintOpenGLError(GLenum source, GLenum type,
     }
     //
     const char* errStr = nullptr;
-	switch(type)
-	{
-		case GL_DEBUG_TYPE_ERROR:               errStr = "ERROR";               break;
-		case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: errStr = "DEPRECATED_BEHAVIOR"; break;
-		case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  errStr = "UNDEFINED_BEHAVIOR";  break;
-		case GL_DEBUG_TYPE_PORTABILITY:         errStr = "PORTABILITY";         break;
-		case GL_DEBUG_TYPE_PERFORMANCE:         errStr = "PERFORMANCE";         break;
+    switch(type)
+    {
+        case GL_DEBUG_TYPE_ERROR:               errStr = "ERROR";               break;
+        case GL_DEBUG_TYPE_DEPRECATED_BEHAVIOR: errStr = "DEPRECATED_BEHAVIOR"; break;
+        case GL_DEBUG_TYPE_UNDEFINED_BEHAVIOR:  errStr = "UNDEFINED_BEHAVIOR";  break;
+        case GL_DEBUG_TYPE_PORTABILITY:         errStr = "PORTABILITY";         break;
+        case GL_DEBUG_TYPE_PERFORMANCE:         errStr = "PERFORMANCE";         break;
         case GL_DEBUG_TYPE_OTHER:               errStr = "OTHER";               break;
         default:                                errStr = "UNKNOWN";             break;
-	}
+    }
 
     // Do not print if debug type is other, it prints information and
     // may be mistaken as error
@@ -763,13 +806,13 @@ void APIENTRY PrintOpenGLError(GLenum source, GLenum type,
 
     //
     const char* severityStr = nullptr;
-	switch(severity)
-	{
-		case GL_DEBUG_SEVERITY_LOW:     severityStr = "LOW";     break;
-		case GL_DEBUG_SEVERITY_MEDIUM:  severityStr = "MEDIUM";  break;
-		case GL_DEBUG_SEVERITY_HIGH:    severityStr = "HIGH";    break;
-		default:                        severityStr = "UNKNOWN"; break;
-	}
+    switch(severity)
+    {
+        case GL_DEBUG_SEVERITY_LOW:     severityStr = "LOW";     break;
+        case GL_DEBUG_SEVERITY_MEDIUM:  severityStr = "MEDIUM";  break;
+        case GL_DEBUG_SEVERITY_HIGH:    severityStr = "HIGH";    break;
+        default:                        severityStr = "UNKNOWN"; break;
+    }
 
     std::fprintf(stderr,
                  "======== OGL-INFO ========\n"
