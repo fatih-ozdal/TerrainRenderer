@@ -36,3 +36,8 @@ set_target_properties(glad PROPERTIES FOLDER Ext)
 add_subdirectory(stb_image)
 set_target_properties(stb_image PROPERTIES FOLDER Ext)
 
+# ========================== #
+#         DEAR IMGUI         #
+# ========================== #
+add_subdirectory(imgui)
+set_target_properties(dear_imgui PROPERTIES FOLDER Ext)

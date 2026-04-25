@@ -103,6 +103,7 @@ target_link_libraries(TerrainRenderer
                         glad
                         stb_image
                         glm
+                        dear_imgui
                         compile_options
                         OpenGL::GL)
 
