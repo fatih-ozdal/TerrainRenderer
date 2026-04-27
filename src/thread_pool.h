@@ -58,7 +58,7 @@
 #ifdef __cpp_lib_hardware_interference_size
 constexpr std::size_t CACHE_LINE = std::hardware_constructive_interference_size;
 #else
-    // 64 bytes on x86-64‚ L1_CACHE_BYTES‚ L1_CACHE_SHIFT‚ __cacheline_aligned‚ etc. ...
+    // 64 bytes on x86-64ï¿½ L1_CACHE_BYTESï¿½ L1_CACHE_SHIFTï¿½ __cacheline_alignedï¿½ etc. ...
 constexpr std::size_t CACHE_LINE = 64;
 #endif
 
@@ -542,7 +542,7 @@ class ThreadPool
     // issuedCounter is written by producer thread(s).
     // Putting a gap here should eliminate data transfer between
     // threads
-    alignas(std::hardware_destructive_interference_size)
+    alignas(CACHE_LINE)
     std::atomic_uint64_t                    completedTaskCount;
 
     void RestartThreadsImpl(uint32_t threadCount);
