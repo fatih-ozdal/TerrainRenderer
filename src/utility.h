@@ -15,6 +15,7 @@
 #include <imgui/imgui_internal.h>
 #include <imgui/imgui_impl_glfw.h>
 #include <imgui/imgui_impl_opengl3.h>
+#include <iostream>
 
 // Window Callbacks
 void WindowPositionCallback(GLFWwindow* wnd, int x, int y);
@@ -270,6 +271,7 @@ inline TextureGL::TextureGL(TextureGL&& other)
 inline TextureGL& TextureGL::operator=(TextureGL&& other)
 {
     assert(this != &other);
+    if (textureId) glDeleteTextures(1, &textureId);
     textureId = other.textureId;
     other.textureId = 0;
     return *this;
