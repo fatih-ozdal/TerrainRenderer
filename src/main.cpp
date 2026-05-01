@@ -44,7 +44,7 @@ void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
 
         glm::quat deltaYaw   = glm::angleAxis(angX, glm::vec3(0, 1, 0));
         glm::quat deltaPitch = glm::angleAxis(angY, glm::vec3(1, 0, 0));
-        state.planeRot = glm::normalize(deltaYaw * deltaPitch * state.planeRot);
+        state.planeRot = glm::normalize(state.planeRot * deltaYaw * deltaPitch);
     }
     else if(state.isRightButtonPressed)
     {
@@ -95,12 +95,12 @@ void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int mo
     if(key == GLFW_KEY_A)
     {
         glm::quat deltaYaw = glm::angleAxis( YawStep, glm::vec3(0, 1, 0));
-        state.planeRot = glm::normalize(deltaYaw * state.planeRot);
+        state.planeRot = glm::normalize(state.planeRot * deltaYaw);
     }
     if(key == GLFW_KEY_D)
     {
         glm::quat deltaYaw = glm::angleAxis(-YawStep, glm::vec3(0, 1, 0));
-        state.planeRot = glm::normalize(deltaYaw * state.planeRot);
+        state.planeRot = glm::normalize(state.planeRot * deltaYaw);
     }
 
     if(key == GLFW_KEY_E || key == GLFW_KEY_Q)
