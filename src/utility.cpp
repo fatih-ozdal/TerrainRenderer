@@ -461,26 +461,30 @@ MeshGL::MeshGL(const std::string& objPath)
     glGenVertexArrays(1, &vaoId);
     glBindVertexArray(vaoId);
     // Pos (tightly packed vec3)
-    glBindVertexBuffer(0, vBufferId, GLintptr(offsets[0]), GLsizei(sizeof(glm::vec3)));
     glEnableVertexAttribArray(0);
     glVertexAttribFormat(0, 3, GL_FLOAT, false, 0);
+    glVertexAttribBinding(0, IN_POS);
     // Normal (tightly packed vec3)
-    glBindVertexBuffer(1, vBufferId, GLintptr(offsets[1]), GLsizei(sizeof(glm::vec3)));
     glEnableVertexAttribArray(1);
     glVertexAttribFormat(1, 3, GL_FLOAT, false, 0);
-
+    glVertexAttribBinding(1, IN_NORMAL);
     // UV (tightly packed vec2)
-    glBindVertexBuffer(2, vBufferId, GLintptr(offsets[2]), GLsizei(sizeof(glm::vec2)));
     glEnableVertexAttribArray(2);
     glVertexAttribFormat(2, 2, GL_FLOAT, false, 0);
-
-    glVertexAttribBinding(0, IN_POS);
-    glVertexAttribBinding(1, IN_NORMAL);
     glVertexAttribBinding(2, IN_UV);
+
+    // Bind vbo to vao
+    glBindVertexBuffer(0, vBufferId, GLintptr(offsets[0]), GLsizei(sizeof(glm::vec3)));
+    glBindVertexBuffer(1, vBufferId, GLintptr(offsets[1]), GLsizei(sizeof(glm::vec3)));
+    glBindVertexBuffer(2, vBufferId, GLintptr(offsets[2]), GLsizei(sizeof(glm::vec2)));
+
     // Above API calls are understandable but to use index draw calls
     // we need to bind an element array buffer (aka. index buffer)
     // to make the vao to store indices so that we can call draw elements call
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iBufferId);
+
+    // Unbind the VAO so the index buffer from the next call isn't accidentally stored in this VAO
+    glBindVertexArray(0);
 
     std::printf("Obj file \"%s\" is loaded succesfully.\n",
                 objPath.c_str());
