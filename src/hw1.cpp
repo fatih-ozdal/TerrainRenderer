@@ -2,13 +2,63 @@
 #include "utility.h"
 
 #include <array>
+#include <fstream>
 #include <glm/ext.hpp>
 
 #include "thread_pool.h"
 
+// Internal CPU-side terrain data, used between generation and GPU upload
+struct TerrainRawData
+{
+    std::vector<glm::vec3>    vertices;
+    std::vector<glm::vec3>    normals;
+    std::vector<unsigned int> indices;
+    glm::vec2                 yMinMax;
+};
+
+static void SaveTerrainCache(const std::string& path, const TerrainRawData& data)
+{
+    std::ofstream f(path, std::ios::binary);
+    if(!f)
+    {
+        std::printf("[Cache] Warning: could not write terrain cache to \"%s\"\n", path.c_str());
+        return;
+    }
+    uint32_t vertexCount = uint32_t(data.vertices.size());
+    uint32_t indexCount  = uint32_t(data.indices.size());
+    f.write(reinterpret_cast<const char*>(&vertexCount),         sizeof(vertexCount));
+    f.write(reinterpret_cast<const char*>(&indexCount),          sizeof(indexCount));
+    f.write(reinterpret_cast<const char*>(&data.yMinMax),        sizeof(data.yMinMax));
+    f.write(reinterpret_cast<const char*>(data.vertices.data()), vertexCount * sizeof(glm::vec3));
+    f.write(reinterpret_cast<const char*>(data.normals.data()),  vertexCount * sizeof(glm::vec3));
+    f.write(reinterpret_cast<const char*>(data.indices.data()),  indexCount  * sizeof(uint32_t));
+    std::printf("[Cache] Terrain saved to \"%s\".\n", path.c_str());
+}
+
+static TerrainMesh LoadTerrainCache(const std::string& path)
+{
+    std::ifstream f(path, std::ios::binary);
+    uint32_t vertexCount, indexCount;
+    glm::vec2 yMinMax;
+    f.read(reinterpret_cast<char*>(&vertexCount), sizeof(vertexCount));
+    f.read(reinterpret_cast<char*>(&indexCount),  sizeof(indexCount));
+    f.read(reinterpret_cast<char*>(&yMinMax),     sizeof(yMinMax));
+
+    std::vector<glm::vec3>    vertices(vertexCount);
+    std::vector<glm::vec3>    normals(vertexCount);
+    std::vector<unsigned int> indices(indexCount);
+    f.read(reinterpret_cast<char*>(vertices.data()), vertexCount * sizeof(glm::vec3));
+    f.read(reinterpret_cast<char*>(normals.data()),  vertexCount * sizeof(glm::vec3));
+    f.read(reinterpret_cast<char*>(indices.data()),  indexCount  * sizeof(uint32_t));
+
+    std::printf("[Cache] Terrain loaded from \"%s\".\n", path.c_str());
+    return TerrainMesh(std::move(vertices), std::move(normals), std::move(indices), yMinMax);
+}
+
 TerrainMesh GenerateTerrainBSpline(ThreadPool& threadPool,
                                    const GeoDataDTED& dted,
-                                   const TerrainMeshGenerationParams& params)
+                                   const TerrainMeshGenerationParams& params,
+                                   const std::string& cachePath)
 {
     using namespace glm;
     // Bounds check
@@ -181,12 +231,16 @@ TerrainMesh GenerateTerrainBSpline(ThreadPool& threadPool,
         yMinMax[1] = std::max(yMinMax[1], v.y);
     }
 
-    return TerrainMesh(vertices, normals, indices, yMinMax);
+    TerrainRawData raw{std::move(vertices), std::move(normals), std::move(indices), yMinMax};
+    if(!cachePath.empty()) SaveTerrainCache(cachePath, raw);
+    return TerrainMesh(std::move(raw.vertices), std::move(raw.normals),
+                       std::move(raw.indices), raw.yMinMax);
 }
 
 TerrainMesh GenerateTerrainBezier(ThreadPool& threadPool,
                                   const GeoDataDTED& dted,
-                                  const TerrainMeshGenerationParams& params)
+                                  const TerrainMeshGenerationParams& params,
+                                  const std::string& cachePath)
 {
     using namespace glm;
     // Bounds check
@@ -365,7 +419,10 @@ TerrainMesh GenerateTerrainBezier(ThreadPool& threadPool,
         yMinMax[1] = std::max(yMinMax[1], v.y);
     }
 
-    return TerrainMesh(vertices, normals, indices, yMinMax);
+    TerrainRawData raw{std::move(vertices), std::move(normals), std::move(indices), yMinMax};
+    if(!cachePath.empty()) SaveTerrainCache(cachePath, raw);
+    return TerrainMesh(std::move(raw.vertices), std::move(raw.normals),
+                       std::move(raw.indices), raw.yMinMax);
 }
 
 TerrainMesh::TerrainMesh(std::vector<glm::vec3> vertices,
@@ -474,7 +531,15 @@ void HW1::Work()
     if(params.vertexPerPatch != glm::uvec2(state.vertexPerPatch))
     {
         params.vertexPerPatch = glm::uvec2(state.vertexPerPatch);
-        terrainMesh = GenerateTerrainBSpline(threadPool, terrainDTED, params);
+
+        std::string cachePath = "geo/cache/terrain_"
+                              + std::to_string(params.vertexPerPatch[0]) + "x"
+                              + std::to_string(params.vertexPerPatch[1]) + ".bin";
+
+        if(std::ifstream(cachePath))
+            terrainMesh = LoadTerrainCache(cachePath);
+        else
+            terrainMesh = GenerateTerrainBSpline(threadPool, terrainDTED, params, cachePath);
     }
 
     // Object-common matrices

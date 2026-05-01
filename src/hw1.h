@@ -60,11 +60,13 @@ struct TerrainMeshGenerationParams
 
 TerrainMesh GenerateTerrainBSpline(ThreadPool& threadPool,
                                    const GeoDataDTED& dted,
-                                   const TerrainMeshGenerationParams& params);
+                                   const TerrainMeshGenerationParams& params,
+                                   const std::string& cachePath = "");
 
 TerrainMesh GenerateTerrainBezier(ThreadPool& threadPool,
                                   const GeoDataDTED& dted,
-                                  const TerrainMeshGenerationParams& params);
+                                  const TerrainMeshGenerationParams& params,
+                                  const std::string& cachePath = "");
 
 struct HW1
 {
