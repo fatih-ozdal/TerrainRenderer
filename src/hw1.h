@@ -74,6 +74,21 @@ struct HW1
     GeoDataDTED terrainDTED;
     ShaderGL    vShader;
     ShaderGL    fShader;
+    ShaderGL    tonemapVert;
+    ShaderGL    tonemapFrag;
+    //
+    GLuint      hdrFboId = 0;
+    GLuint      hdrColorTex = 0;
+    GLuint      hdrDepthRbo = 0;
+    glm::uvec2  hdrFboSize = glm::uvec2(0);
+    //
+    GLuint      fullscreenVao = 0;
+    GLuint      fullscreenVbo = 0;
+    GLuint      fullscreenIbo = 0;
+    //
+    float       middle_gray = 0.18f;
+    float       LWhite = 1.0f;
+    //
     TerrainMeshGenerationParams params;
     //
     uint32_t    curVertexPerPatch = 0;
@@ -88,7 +103,8 @@ struct HW1
          HW1(HW1&&) = delete;
     HW1& operator=(const HW1&) = delete;
     HW1& operator=(HW1&&) = delete;
-         ~HW1() = default;
+         ~HW1();
 
+    void RecreateHDRFBO(int w, int h);
     void Work();
 };

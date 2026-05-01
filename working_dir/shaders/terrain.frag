@@ -86,4 +86,5 @@ void main(void)
 		// If mode is wrong, put pure white.
 		default: fboColor = vec4(1); break;
 	}
+	fboColor.a = log(dot(fboColor.rgb, vec3(0.2126, 0.7152, 0.0722)) + 1e-5);
 }

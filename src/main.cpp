@@ -207,6 +207,10 @@ int main(int argc, const char* argv[])
         // ================ //
         ui.BeginFrame();
 
+        ImGui::Begin("Tonemapping");
+        ImGui::SliderFloat("Middle Gray", &hw1.middle_gray, 0.01f, 1.0f);
+        ImGui::SliderFloat("L White",     &hw1.LWhite,      0.1f,  1.0f);
+        ImGui::End();
 
         // =============== //
         //      HW 1       //

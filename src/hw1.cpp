@@ -503,10 +503,53 @@ TerrainMesh::~TerrainMesh()
 }
 
 
+void HW1::RecreateHDRFBO(int w, int h)
+{
+    if(hdrFboId)
+    {
+        glDeleteFramebuffers(1, &hdrFboId);
+        glDeleteTextures(1, &hdrColorTex);
+        glDeleteRenderbuffers(1, &hdrDepthRbo);
+    }
+
+    glGenTextures(1, &hdrColorTex);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, hdrColorTex);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, w, h, 0, GL_RGBA, GL_FLOAT, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    glGenRenderbuffers(1, &hdrDepthRbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, hdrDepthRbo);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT24, w, h);
+    glBindRenderbuffer(GL_RENDERBUFFER, 0);
+
+    glGenFramebuffers(1, &hdrFboId);
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, hdrColorTex, 0);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_RENDERBUFFER, hdrDepthRbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    hdrFboSize = glm::uvec2(w, h);
+}
+
+HW1::~HW1()
+{
+    if(hdrFboId)      glDeleteFramebuffers(1, &hdrFboId);
+    if(hdrColorTex)   glDeleteTextures(1, &hdrColorTex);
+    if(hdrDepthRbo)   glDeleteRenderbuffers(1, &hdrDepthRbo);
+    if(fullscreenVao) glDeleteVertexArrays(1, &fullscreenVao);
+    if(fullscreenVbo) glDeleteBuffers(1, &fullscreenVbo);
+    if(fullscreenIbo) glDeleteBuffers(1, &fullscreenIbo);
+}
+
 HW1::HW1(ThreadPool& threadPool,
          GLState& state)
     : vShader(ShaderGL::VERTEX, "shaders/terrain.vert")
     , fShader(ShaderGL::FRAGMENT, "shaders/terrain.frag")
+    , tonemapVert(ShaderGL::VERTEX, "shaders/tonemap.vert")
+    , tonemapFrag(ShaderGL::FRAGMENT, "shaders/tonemap.frag")
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
     {
@@ -524,7 +567,32 @@ HW1::HW1(ThreadPool& threadPool,
     , curVertexPerPatch(0)
     , state(state)
     , threadPool(threadPool)
-{}
+{
+    static constexpr float quadVerts[] = {
+        -1.0f, -1.0f,
+         1.0f, -1.0f,
+         1.0f,  1.0f,
+        -1.0f,  1.0f
+    };
+    static constexpr unsigned int quadIdx[] = { 0, 1, 2, 0, 2, 3 };
+
+    glGenVertexArrays(1, &fullscreenVao);
+    glGenBuffers(1, &fullscreenVbo);
+    glGenBuffers(1, &fullscreenIbo);
+
+    glBindVertexArray(fullscreenVao);
+    glBindBuffer(GL_ARRAY_BUFFER, fullscreenVbo);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(quadVerts), quadVerts, GL_STATIC_DRAW);
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, 2 * sizeof(float), nullptr);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, fullscreenIbo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIdx), quadIdx, GL_STATIC_DRAW);
+    glBindVertexArray(0);
+
+    glm::ivec2 fbSize = state.curWndParams.fbSize;
+    if(fbSize[0] > 0 && fbSize[1] > 0)
+        RecreateHDRFBO(fbSize[0], fbSize[1]);
+}
 
 void HW1::Work()
 {
@@ -551,7 +619,15 @@ void HW1::Work()
     glm::mat4x4 translate = glm::translate(glm::identity<glm::mat4x4>(), state.cam.translation);
     glm::mat4x4 view = translate * rot;
 
-    // Start rendering
+    // Resize HDR FBO if window size changed
+    {
+        glm::uvec2 newSize(state.curWndParams.fbSize[0], state.curWndParams.fbSize[1]);
+        if(newSize != hdrFboSize && newSize[0] > 0 && newSize[1] > 0)
+            RecreateHDRFBO(int(newSize[0]), int(newSize[1]));
+    }
+
+    // Terrain pass: render into HDR FBO
+    glBindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
     glViewport(0, 0,
                state.curWndParams.fbSize[0],
                state.curWndParams.fbSize[1]);
@@ -601,4 +677,31 @@ void HW1::Work()
     // Draw call!
     glDrawElements(GL_TRIANGLES, terrainMesh.indexCount, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
+
+    // Unbind HDR FBO, generate mipmaps to compute avg log luminance in 1x1 mip alpha
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, hdrColorTex);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    // Tonemap pass: Reinhard extended, writes to default FBO
+    static constexpr GLuint U_MIDDLE_GRAY = 0;
+    static constexpr GLuint U_LWHITE      = 1;
+
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glDisable(GL_DEPTH_TEST);
+    glDisable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+    glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT,   tonemapVert.shaderId);
+    glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, tonemapFrag.shaderId);
+    glActiveShaderProgram(state.renderPipeline, tonemapFrag.shaderId);
+    glUniform1f(U_MIDDLE_GRAY, middle_gray);
+    glUniform1f(U_LWHITE, LWhite);
+
+    glBindVertexArray(fullscreenVao);
+    glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
+
+    glEnable(GL_DEPTH_TEST);
 }
