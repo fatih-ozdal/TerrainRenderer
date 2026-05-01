@@ -600,4 +600,5 @@ void HW1::Work()
     glBindVertexArray(terrainMesh.vaoId);
     // Draw call!
     glDrawElements(GL_TRIANGLES, terrainMesh.indexCount, GL_UNSIGNED_INT, nullptr);
+    glBindVertexArray(0);
 }
