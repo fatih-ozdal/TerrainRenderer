@@ -109,7 +109,7 @@ void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int mo
         rotAngle = (key == GLFW_KEY_Q) ? -rotAngle : rotAngle;
 
         glm::quat deltaRoll = glm::angleAxis(rotAngle, glm::vec3(0, 0, 1));
-        state.planeRot = glm::normalize(deltaRoll * state.planeRot);
+        state.planeRot = glm::normalize(state.planeRot * deltaRoll);
     }
 
     if(key == GLFW_KEY_LEFT_ALT)
