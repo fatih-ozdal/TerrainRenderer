@@ -493,7 +493,6 @@ TextureGL::TextureGL(const std::string& texPath,
                      SampleMode sampleMode, EdgeResolve edgeResolveMode,
                      bool doLinearize)
 {
-    stbi_set_flip_vertically_on_load(1);
     std::FILE* f = fopen(texPath.c_str(), "rb");
     if(!f)
     {
@@ -503,6 +502,9 @@ TextureGL::TextureGL(const std::string& texPath,
     //
     bool is16Bit = stbi_is_16_bit_from_file(f);
     bool isHDR   = stbi_is_hdr_from_file(f);
+    
+    // HDR images' origin is bottom left corner just as opengl expects so no need to flip it.
+    stbi_set_flip_vertically_on_load(isHDR ? 0 : 1);
 
     void* rawPixels = nullptr;
          if(is16Bit) rawPixels = stbi_load_from_file_16(f, &width, &height, &channelCount, 0);
@@ -589,8 +591,18 @@ TextureGL::TextureGL(const std::string& texPath,
                     pixType, rawPixels);
     glGenerateMipmap(GL_TEXTURE_2D);
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, edgeResolveMode);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, edgeResolveMode);
+    if (isHDR)
+    {
+        // Equirectangular: horizontal wraps seamlessly, vertical clamps at poles
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    }
+    else
+    {
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, edgeResolveMode);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, edgeResolveMode);
+    }
+
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, sampleMode);
     if(sampleMode == NEAREST)
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
