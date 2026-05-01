@@ -550,6 +550,14 @@ HW1::HW1(ThreadPool& threadPool,
     , fShader(ShaderGL::FRAGMENT, "shaders/terrain.frag")
     , tonemapVert(ShaderGL::VERTEX, "shaders/tonemap.vert")
     , tonemapFrag(ShaderGL::FRAGMENT, "shaders/tonemap.frag")
+    , planeVert(ShaderGL::VERTEX, "shaders/plane.vert")
+    , planeFrag(ShaderGL::FRAGMENT, "shaders/plane.frag")
+    , planeMeshBody("meshes/plane_body.obj")
+    , planeMeshHelix("meshes/plane_helix.obj")
+    , planeMeshGlass("meshes/plane_glass.obj")
+    , planeMeshCable("meshes/plane_cable.obj")
+    , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
+    , planeHelixAlbedo("textures/plane_helix_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
     {
@@ -589,9 +597,56 @@ HW1::HW1(ThreadPool& threadPool,
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(quadIdx), quadIdx, GL_STATIC_DRAW);
     glBindVertexArray(0);
 
+    prevTime = glfwGetTime();
+
     glm::ivec2 fbSize = state.curWndParams.fbSize;
     if(fbSize[0] > 0 && fbSize[1] > 0)
         RecreateHDRFBO(fbSize[0], fbSize[1]);
+}
+
+void HW1::DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj)
+{
+    static constexpr GLuint U_MODEL  = 0;
+    static constexpr GLuint U_VIEW   = 1;
+    static constexpr GLuint U_PROJ   = 2;
+    static constexpr GLuint U_NORMAL = 3;
+    static constexpr GLuint U_LIGHT  = 2;
+
+    glm::mat4x4 planeWorld = glm::translate(glm::identity<glm::mat4x4>(), state.planePos)
+                           * glm::toMat4(state.planeRot);
+
+    glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT,   planeVert.shaderId);
+    glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, planeFrag.shaderId);
+
+    auto drawComponent = [&](const MeshGL& mesh, const glm::mat4x4& localTransform)
+    {
+        glm::mat4x4 model     = planeWorld * localTransform;
+        glm::mat3x3 normalMat = glm::inverseTranspose(glm::mat3(model));
+        glActiveShaderProgram(state.renderPipeline, planeVert.shaderId);
+        glUniformMatrix4fv(U_MODEL,  1, false, glm::value_ptr(model));
+        glUniformMatrix4fv(U_VIEW,   1, false, glm::value_ptr(view));
+        glUniformMatrix4fv(U_PROJ,   1, false, glm::value_ptr(proj));
+        glUniformMatrix3fv(U_NORMAL, 1, false, glm::value_ptr(normalMat));
+        glActiveShaderProgram(state.renderPipeline, planeFrag.shaderId);
+        glUniform3fv(U_LIGHT, 1, glm::value_ptr(state.lightPos));
+        glBindVertexArray(mesh.vaoId);
+        glDrawElements(GL_TRIANGLES, mesh.indexCount, GL_UNSIGNED_INT, nullptr);
+        glBindVertexArray(0);
+    };
+
+    glActiveTexture(GL_TEXTURE0);
+
+    glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
+    drawComponent(planeMeshBody, glm::identity<glm::mat4x4>());
+
+    glBindTexture(GL_TEXTURE_2D, planeHelixAlbedo.textureId);
+    drawComponent(planeMeshHelix, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 0.0f, 13.719f))
+                                * glm::rotate(glm::identity<glm::mat4x4>(), helixAngle, glm::vec3(0.0f, 0.0f, 1.0f)));
+
+    // Placeholder: glass should reflect the HDR map, using base albedo for now
+    glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
+    drawComponent(planeMeshGlass, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 2.733f, -1.489f)));
+    drawComponent(planeMeshCable, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 3.644f, -10.638f)));
 }
 
 void HW1::Work()
@@ -610,14 +665,28 @@ void HW1::Work()
             terrainMesh = GenerateTerrainBSpline(threadPool, terrainDTED, params, cachePath);
     }
 
+    // Delta time + plane movement
+    double currentTime = glfwGetTime();
+    float dt = float(currentTime - prevTime);
+    prevTime = currentTime;
+
+    glm::vec3 planeForward = state.planeRot * glm::vec3(0, 0, 1);
+    state.planePos += planeForward * state.planeSpeed * dt;
+    helixAngle += dt * 10.0f;
+
     // Object-common matrices
     float aspectRatio = float(state.curWndParams.fbSize[0]) / float(state.curWndParams.fbSize[1]);
     glm::mat4x4 proj = glm::perspective(glm::radians(50.0f), aspectRatio,
                                         0.1f, 1000.0f);
 
-    glm::mat4x4 rot = glm::toMat4(state.cam.rotation);
-    glm::mat4x4 translate = glm::translate(glm::identity<glm::mat4x4>(), state.cam.translation);
-    glm::mat4x4 view = translate * rot;
+    // Orbit camera: position around plane via yaw/pitch/distance
+    float az = state.orbitCam.yaw;
+    float el = state.orbitCam.pitch;
+    float d  = state.orbitCam.distance;
+    glm::vec3 cameraPos = state.planePos + glm::vec3(d * std::cos(el) * std::sin(az),
+                                                     d * std::sin(el),
+                                                     d * std::cos(el) * std::cos(az));
+    glm::mat4x4 view = glm::lookAt(cameraPos, state.planePos, glm::vec3(0, 1, 0));
 
     // Resize HDR FBO if window size changed
     {
@@ -677,6 +746,8 @@ void HW1::Work()
     // Draw call!
     glDrawElements(GL_TRIANGLES, terrainMesh.indexCount, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
+
+    DrawPlane(view, proj);
 
     // Unbind HDR FBO, generate mipmaps to compute avg log luminance in 1x1 mip alpha
     glBindFramebuffer(GL_FRAMEBUFFER, 0);

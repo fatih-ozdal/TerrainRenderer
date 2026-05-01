@@ -37,20 +37,22 @@ void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
     float diffX = static_cast<float>(x - state.prevMouseX);
     float diffY = static_cast<float>(y - state.prevMouseY);
 
-    if(state.mouseToggle)
+    if(state.altKeyHeld)
     {
         float angX = float(-diffX * DefaultSensitivity);
         float angY = float(-diffY * DefaultSensitivity);
 
-        // YAW
-        glm::quat deltaYaw = glm::angleAxis(angX, glm::vec3(0, 1, 0));
-        //
-        // PITCH
+        glm::quat deltaYaw   = glm::angleAxis(angX, glm::vec3(0, 1, 0));
         glm::quat deltaPitch = glm::angleAxis(angY, glm::vec3(1, 0, 0));
-        //
-        glm::quat newRot = deltaYaw * deltaPitch * state.cam.rotation;
-        state.cam.rotation = glm::normalize(newRot);
+        state.planeRot = glm::normalize(deltaYaw * deltaPitch * state.planeRot);
     }
+    else if(state.isRightButtonPressed)
+    {
+        state.orbitCam.yaw   += diffX * float(DefaultSensitivity);
+        state.orbitCam.pitch += diffY * float(DefaultSensitivity);
+        state.orbitCam.pitch  = glm::clamp(state.orbitCam.pitch, -1.5f, 1.5f);
+    }
+
     state.prevMouseX = x;
     state.prevMouseY = y;
 }
@@ -58,26 +60,20 @@ void MouseMoveCallback(GLFWwindow* wnd, double x, double y)
 void MouseButtonCallback(GLFWwindow* wnd, int button, int action, int)
 {
     GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
-    if(button == GLFW_MOUSE_BUTTON_1)
+    if(button == GLFW_MOUSE_BUTTON_2)
     {
-        if(action == GLFW_PRESS)    state.mouseToggle = true;
-        if(action == GLFW_RELEASE)  state.mouseToggle = false;
+        if(action == GLFW_PRESS)   state.isRightButtonPressed = true;
+        if(action == GLFW_RELEASE) state.isRightButtonPressed = false;
     }
 }
 
 void MouseScrollCallback(GLFWwindow* wnd, double dx, double dy)
 {
-    static constexpr double DefaultZoomPercentage = 1.1;
+    static constexpr float ZoomSpeed = 2.0f;
 
     GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
-
-
-    // Zoom to the focus until some threshold
-    glm::vec3 look = state.cam.rotation * glm::vec3(0, 0, 1);
-    if(look.length() > 0.1f)
-    {
-        state.cam.translation[2] += float(dy * DefaultZoomPercentage);
-    }
+    state.orbitCam.distance -= float(dy) * ZoomSpeed;
+    state.orbitCam.distance  = glm::max(state.orbitCam.distance, 2.0f);
 }
 
 void FramebufferChangeCallback(GLFWwindow* wnd, int w, int h)
@@ -92,34 +88,34 @@ void KeyboardCallback(GLFWwindow* wnd, int key, int scancode, int action, int mo
     GLState& state = *static_cast<GLState*>(glfwGetWindowUserPointer(wnd));
     uint32_t mode = state.mode;
 
-    glm::vec3 ratio = glm::vec3(0.25f);
-    if(key == GLFW_KEY_W)
-    {
-        state.cam.translation[2] += ratio[0];
-    }
-    if(key == GLFW_KEY_S)
-    {
-        state.cam.translation[2] -= ratio[0];
-    }
+    static constexpr float SpeedStep   = 0.5f;
+    static constexpr float YawStep     = float(DefaultSensitivity * 10);
+    if(key == GLFW_KEY_W) state.planeSpeed += SpeedStep;
+    if(key == GLFW_KEY_S) state.planeSpeed  = state.planeSpeed - SpeedStep; // i am intentionally letting plane to go in reverse
     if(key == GLFW_KEY_A)
     {
-        state.cam.translation[0] += ratio[0];
+        glm::quat deltaYaw = glm::angleAxis( YawStep, glm::vec3(0, 1, 0));
+        state.planeRot = glm::normalize(deltaYaw * state.planeRot);
     }
     if(key == GLFW_KEY_D)
     {
-        state.cam.translation[0] -= ratio[0];
+        glm::quat deltaYaw = glm::angleAxis(-YawStep, glm::vec3(0, 1, 0));
+        state.planeRot = glm::normalize(deltaYaw * state.planeRot);
     }
-
 
     if(key == GLFW_KEY_E || key == GLFW_KEY_Q)
     {
         float rotAngle = float(DefaultSensitivity * 10);
         rotAngle = (key == GLFW_KEY_Q) ? -rotAngle : rotAngle;
-        //
+
         glm::quat deltaRoll = glm::angleAxis(rotAngle, glm::vec3(0, 0, 1));
-        glm::quat newRot = deltaRoll * state.cam.rotation;
-        //
-        state.cam.rotation = glm::normalize(newRot);
+        state.planeRot = glm::normalize(deltaRoll * state.planeRot);
+    }
+
+    if(key == GLFW_KEY_LEFT_ALT)
+    {
+        if(action == GLFW_PRESS)   state.altKeyHeld = true;
+        if(action == GLFW_RELEASE) state.altKeyHeld = false;
     }
 
     if(action != GLFW_RELEASE) return;

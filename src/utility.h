@@ -54,6 +54,13 @@ struct WindowParams
     glm::ivec2 fbSize;
 };
 
+struct OrbitCam
+{
+    float yaw      = 0.0f;
+    float pitch    = 0.3f;
+    float distance = 40.0f;
+};
+
 struct GLState
 {
     GLFWwindow*  window = nullptr;
@@ -82,6 +89,18 @@ struct GLState
 
     // Render mode
     uint32_t mode = 1;
+
+    // Plane state
+    glm::vec3 planePos   = glm::vec3(0, 15, 0);
+    glm::quat planeRot   = glm::identity<glm::quat>();
+    float     planeSpeed = 0.0f;
+
+    // Orbit camera
+    OrbitCam orbitCam;
+
+    // Additional input state
+    bool isRightButtonPressed = false;
+    bool altKeyHeld           = false;
 
     // Constructors, Movement & Destructor
             GLState(const char* const windowName,

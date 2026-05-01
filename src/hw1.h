@@ -76,6 +76,18 @@ struct HW1
     ShaderGL    fShader;
     ShaderGL    tonemapVert;
     ShaderGL    tonemapFrag;
+    ShaderGL    planeVert;
+    ShaderGL    planeFrag;
+    //
+    MeshGL      planeMeshBody;
+    MeshGL      planeMeshHelix;
+    MeshGL      planeMeshGlass;
+    MeshGL      planeMeshCable;
+    TextureGL   planeBaseAlbedo;   // used by body and cables
+    TextureGL   planeHelixAlbedo;  // used by helix
+    //
+    float       helixAngle = 0.0f;
+    double      prevTime   = 0.0;
     //
     GLuint      hdrFboId = 0;
     GLuint      hdrColorTex = 0;
@@ -106,5 +118,6 @@ struct HW1
          ~HW1();
 
     void RecreateHDRFBO(int w, int h);
+    void DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj);
     void Work();
 };
