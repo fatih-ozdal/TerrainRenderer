@@ -560,7 +560,9 @@ HW1::HW1(ThreadPool& threadPool,
     , planeMeshGlass("meshes/plane_glass.obj")
     , planeMeshCable("meshes/plane_cable.obj")
     , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
+    , planeBaseRoughness("textures/plane_base_roughness.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , planeHelixAlbedo("textures/plane_helix_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
+    , planeHelixRoughness("textures/plane_helix_roughness.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , skyHDR("textures/citrus_orchard_puresky_2k.hdr", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
@@ -645,13 +647,22 @@ void HW1::DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj, const glm:
         glBindVertexArray(0);
     };
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, planeBaseRoughness.textureId);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
     drawComponent(planeMeshBody, glm::identity<glm::mat4x4>());
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, planeHelixRoughness.textureId);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeHelixAlbedo.textureId);
     drawComponent(planeMeshHelix, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 0.0f, 13.719f))
                                 * glm::rotate(glm::identity<glm::mat4x4>(), helixAngle, glm::vec3(0.0f, 0.0f, 1.0f)));
 
+    glActiveTexture(GL_TEXTURE2);
+    glBindTexture(GL_TEXTURE_2D, planeBaseRoughness.textureId);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
     drawComponent(planeMeshCable, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 3.644f, -10.638f)));
 

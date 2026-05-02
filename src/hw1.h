@@ -86,8 +86,10 @@ struct HW1
     MeshGL      planeMeshHelix;
     MeshGL      planeMeshGlass;
     MeshGL      planeMeshCable;
-    TextureGL   planeBaseAlbedo;   // used by body and cables
-    TextureGL   planeHelixAlbedo;  // used by helix
+    TextureGL   planeBaseAlbedo;     // used by body and cables
+    TextureGL   planeBaseRoughness;  // used by body and cables
+    TextureGL   planeHelixAlbedo;    // used by helix
+    TextureGL   planeHelixRoughness; // used by helix
     TextureGL   skyHDR;
     //
     float       helixAngle = 0.0f;
