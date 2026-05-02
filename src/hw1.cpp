@@ -562,8 +562,8 @@ HW1::HW1(ThreadPool& threadPool,
     , planeMeshGlass("meshes/plane_glass.obj")
     , planeMeshCable("meshes/plane_cable.obj")
     , waterMesh(PlaneGenParams{
-          .rangeX = glm::vec2(-500.0f, 500.0f),
-          .rangeZ = glm::vec2(-500.0f, 500.0f),
+          .rangeX = glm::vec2(-1000.0f, 1000.0f),
+          .rangeZ = glm::vec2(-1000.0f, 1000.0f),
           .vertexCount = glm::uvec2(128)
       })
     , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
