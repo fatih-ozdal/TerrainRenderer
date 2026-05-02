@@ -4,7 +4,7 @@
 #define U_INV_PROJ     layout(location = 0)
 #define U_INV_VIEW_ROT layout(location = 1)
 
-in vec2 fNDC;
+in layout(location = 0) vec2 fNDC;
 
 out OUT_FBO vec4 fboColor;
 

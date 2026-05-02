@@ -18,9 +18,11 @@ U_VIEW   uniform mat4 view;
 U_PROJ   uniform mat4 proj;
 U_NORMAL uniform mat3 normalMatrix;
 
-out vec3 fNormal;
-out vec3 fWorldPos;
-out vec2 fUV;
+out gl_PerVertex { vec4 gl_Position; };
+
+out layout(location = 0) vec3 fNormal;
+out layout(location = 1) vec3 fWorldPos;
+out layout(location = 2) vec2 fUV;
 
 void main()
 {

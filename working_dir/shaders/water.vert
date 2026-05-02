@@ -20,8 +20,8 @@ U_PROJ   uniform mat4 proj;
 U_NORMAL uniform mat3 normalMatrix;
 U_TIME   uniform float uTime;
 
-out vec3 fNormal;
-out vec3 fWorldPos;
+out layout(location = 0) vec3 fNormal;
+out layout(location = 1) vec3 fWorldPos;
 
 out gl_PerVertex { vec4 gl_Position; };
 

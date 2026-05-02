@@ -3,8 +3,8 @@
 #define OUT_FBO   layout(location = 0)
 #define U_CAM_POS layout(location = 2)
 
-in vec3 fNormal;
-in vec3 fWorldPos;
+in layout(location = 0) vec3 fNormal;
+in layout(location = 1) vec3 fWorldPos;
 
 out OUT_FBO vec4 fboColor;
 

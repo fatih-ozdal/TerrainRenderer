@@ -4,7 +4,9 @@
 
 in IN_POS vec2 inPos;
 
-out vec2 fNDC;
+out gl_PerVertex { vec4 gl_Position; };
+
+out layout(location = 0) vec2 fNDC;
 
 void main()
 {

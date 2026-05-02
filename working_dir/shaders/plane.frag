@@ -4,9 +4,9 @@
 #define U_LIGHT_POS layout(location = 2)
 #define U_CAM_POS   layout(location = 3)
 
-in vec3 fNormal;
-in vec3 fWorldPos;
-in vec2 fUV;
+in layout(location = 0) vec3 fNormal;
+in layout(location = 1) vec3 fWorldPos;
+in layout(location = 2) vec2 fUV;
 
 out OUT_FBO vec4 fboColor;
 
