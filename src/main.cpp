@@ -205,7 +205,7 @@ int main(int argc, const char* argv[])
 
         ImGui::Begin("Tonemapping");
         ImGui::SliderFloat("Middle Gray", &hw1.middle_gray, 0.01f, 1.0f);
-        ImGui::SliderFloat("L White",     &hw1.LWhite,      0.1f,  1.0f);
+        ImGui::SliderFloat("L White (logarithmic)", &hw1.LWhite, 0.01f, 1.0e6f, "%.1f", ImGuiSliderFlags_Logarithmic);
         ImGui::End();
 
         // =============== //

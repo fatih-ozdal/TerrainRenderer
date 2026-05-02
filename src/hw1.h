@@ -117,7 +117,7 @@ struct HW1
     GLuint      fullscreenIbo = 0;
     //
     float       middle_gray = 0.18f;
-    float       LWhite = 1.0f;
+    float       LWhite = 1e6f;
     //
     TerrainMeshGenerationParams params;
     //
