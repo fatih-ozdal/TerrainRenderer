@@ -845,7 +845,7 @@ void HW1::Work()
         static constexpr GLuint WU_CAM_POS = 2;
 
         glm::mat4x4 waterModel = glm::translate(glm::identity<glm::mat4x4>(),
-                                                glm::vec3(0.0f, -30.0f, 0.0f));
+                                                glm::vec3(0.0f, waterLevel, 0.0f));
         glm::mat3x3 waterNormal = glm::inverseTranspose(glm::mat3(waterModel));
 
         glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT,   waterVert.shaderId);

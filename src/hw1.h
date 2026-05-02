@@ -118,6 +118,7 @@ struct HW1
     //
     float       middle_gray = 0.18f;
     float       LWhite = 1e6f;
+    float       waterLevel  = -37.5f;
     //
     TerrainMeshGenerationParams params;
     //

@@ -34,7 +34,9 @@ void main(void)
     float slope     = 1.0 - clamp(N.y, 0.0, 1.0);
 
     float snowW  = smoothstep(0.72, 0.88, elevation);
-    float rockW  = smoothstep(0.25, 0.55, slope) * (1.0 - snowW);
+    // Rock on steep slopes + rocky cliffs at the shoreline
+    float rockW  = clamp(smoothstep(0.25, 0.55, slope)
+                       + smoothstep(0.25, 0.13, elevation), 0.0, 1.0) * (1.0 - snowW);
     float shoreW = smoothstep(0.18, 0.04, elevation) * (1.0 - snowW) * (1.0 - rockW);
     float grassW = max(0.0, 1.0 - snowW - rockW - shoreW);
 

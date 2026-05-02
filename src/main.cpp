@@ -203,9 +203,16 @@ int main(int argc, const char* argv[])
         // ================ //
         ui.BeginFrame();
 
-        ImGui::Begin("Tonemapping");
-        ImGui::SliderFloat("Middle Gray", &hw1.middle_gray, 0.01f, 1.0f);
-        ImGui::SliderFloat("L White (logarithmic)", &hw1.LWhite, 0.01f, 1.0e6f, "%.1f", ImGuiSliderFlags_Logarithmic);
+        ImGui::Begin("Settings");
+        if(ImGui::CollapsingHeader("Tonemapping", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::SliderFloat("Middle Gray",          &hw1.middle_gray, 0.01f, 1.0f);
+            ImGui::SliderFloat("L White (logarithmic)", &hw1.LWhite,     0.01f, 1.0e6f, "%.1f", ImGuiSliderFlags_Logarithmic);
+        }
+        if(ImGui::CollapsingHeader("Scene", ImGuiTreeNodeFlags_DefaultOpen))
+        {
+            ImGui::SliderFloat("Water Level", &hw1.waterLevel, -50.0f, 0.0f);
+        }
         ImGui::End();
 
         // =============== //
