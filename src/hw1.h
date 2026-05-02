@@ -80,6 +80,7 @@ struct HW1
     ShaderGL    planeFrag;
     ShaderGL    skyVert;
     ShaderGL    skyFrag;
+    ShaderGL    glassFrag;
     //
     MeshGL      planeMeshBody;
     MeshGL      planeMeshHelix;
@@ -121,6 +122,6 @@ struct HW1
          ~HW1();
 
     void RecreateHDRFBO(int w, int h);
-    void DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj);
+    void DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj, const glm::vec3& camPos);
     void Work();
 };
