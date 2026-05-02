@@ -101,9 +101,9 @@ source_group("Shaders" FILES ${SRC_SHADERS})
 
 find_package(OpenGL)
 
-add_executable(TerrainRenderer)
-target_sources(TerrainRenderer PRIVATE ${SRC_ALL} ${SRC_SHADERS})
-target_link_libraries(TerrainRenderer
+add_executable(main)
+target_sources(main PRIVATE ${SRC_ALL} ${SRC_SHADERS})
+target_link_libraries(main
                       PRIVATE
                         glfw
                         glad
@@ -114,18 +114,18 @@ target_link_libraries(TerrainRenderer
                         OpenGL::GL)
 
 # Executable will be compiled to the 'working_dir'
-set_target_properties(TerrainRenderer PROPERTIES
+set_target_properties(main PROPERTIES
                       RUNTIME_OUTPUT_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/working_dir)
 
 # On linux we need add X11 as dependency
 if(UNIX AND NOT APPLE)
-    target_link_libraries(TerrainRenderer PRIVATE X11)
+    target_link_libraries(main PRIVATE X11)
 else() # Windows
-    target_link_libraries(TerrainRenderer)
+    target_link_libraries(main)
 
     # Set some debug flags for fast debugging
     # for visual studio IDE
-    set_target_properties(TerrainRenderer PROPERTIES
+    set_target_properties(main PROPERTIES
                           VS_DEBUGGER_WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/working_dir)
 
 endif()
