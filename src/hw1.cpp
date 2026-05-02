@@ -560,13 +560,13 @@ HW1::HW1(ThreadPool& threadPool,
     , planeMeshCable("meshes/plane_cable.obj")
     , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
     , planeHelixAlbedo("textures/plane_helix_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
-    , skyHDR("textures/citrus_orchard_puresky_2k.hdr", TextureGL::LINEAR, TextureGL::REPEAT, false)
+    , skyHDR("textures/church_stairway_2k.hdr", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
     {
-        .rangeX = glm::vec2(-100, 100),
-        .rangeY = glm::vec2(-10, 10),
-        .rangeZ = glm::vec2(-100, 100),
+        .rangeX = glm::vec2(-500, 500),
+        .rangeY = glm::vec2(-50, 50),
+        .rangeZ = glm::vec2(-500, 500),
         //
         .patchStartOffset = glm::uvec2(0),
         .patchCount = glm::uvec2(256),
@@ -660,7 +660,10 @@ void HW1::Work()
 
         std::string cachePath = "geo/cache/terrain_"
                               + std::to_string(params.vertexPerPatch[0]) + "x"
-                              + std::to_string(params.vertexPerPatch[1]) + ".bin";
+                              + std::to_string(params.vertexPerPatch[1])
+                              + "_r" + std::to_string(int(params.rangeX[1]))
+                              + "_" + std::to_string(int(params.rangeY[1]))
+                              + ".bin";
 
         if(std::ifstream(cachePath))
             terrainMesh = LoadTerrainCache(cachePath);
@@ -680,7 +683,7 @@ void HW1::Work()
     // Object-common matrices
     float aspectRatio = float(state.curWndParams.fbSize[0]) / float(state.curWndParams.fbSize[1]);
     glm::mat4x4 proj = glm::perspective(glm::radians(50.0f), aspectRatio,
-                                        0.1f, 1000.0f);
+                                        2.0f, 5000.0f);
 
     // Orbit camera: position around plane via yaw/pitch/distance
     float az = state.orbitCam.yaw;
@@ -688,7 +691,7 @@ void HW1::Work()
     float d  = state.orbitCam.distance;
     glm::vec3 cameraPos = state.planePos + glm::vec3(d * std::cos(el) * std::sin(az),
                                                      d * std::sin(el),
-                                                     d * std::cos(el) * std::cos(az));
+                                                    -d * std::cos(el) * std::cos(az));
     glm::mat4x4 view = glm::lookAt(cameraPos, state.planePos, glm::vec3(0, 1, 0));
 
     // Resize HDR FBO if window size changed

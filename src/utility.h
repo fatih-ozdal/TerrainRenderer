@@ -58,7 +58,7 @@ struct OrbitCam
 {
     float yaw      = 0.0f;
     float pitch    = 0.3f;
-    float distance = 40.0f;
+    float distance = 100.0f;
 };
 
 struct GLState
@@ -91,7 +91,7 @@ struct GLState
     uint32_t mode = 1;
 
     // Plane state
-    glm::vec3 planePos   = glm::vec3(0, 15, 0);
+    glm::vec3 planePos   = glm::vec3(0, 20, 0);
     glm::quat planeRot   = glm::identity<glm::quat>();
     float     planeSpeed = 0.0f;
 
