@@ -555,15 +555,30 @@ HW1::HW1(ThreadPool& threadPool,
     , skyVert(ShaderGL::VERTEX, "shaders/sky.vert")
     , skyFrag(ShaderGL::FRAGMENT, "shaders/sky.frag")
     , glassFrag(ShaderGL::FRAGMENT, "shaders/glass.frag")
+    , waterVert(ShaderGL::VERTEX,   "shaders/water.vert")
+    , waterFrag(ShaderGL::FRAGMENT, "shaders/water.frag")
     , planeMeshBody("meshes/plane_body.obj")
     , planeMeshHelix("meshes/plane_helix.obj")
     , planeMeshGlass("meshes/plane_glass.obj")
     , planeMeshCable("meshes/plane_cable.obj")
+    , waterMesh(PlaneGenParams{
+          .rangeX = glm::vec2(-500.0f, 500.0f),
+          .rangeZ = glm::vec2(-500.0f, 500.0f),
+          .vertexCount = glm::uvec2(128)
+      })
     , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
     , planeBaseRoughness("textures/plane_base_roughness.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , planeHelixAlbedo("textures/plane_helix_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
     , planeHelixRoughness("textures/plane_helix_roughness.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , skyHDR("textures/citrus_orchard_puresky_2k.hdr", TextureGL::LINEAR, TextureGL::REPEAT, false)
+    , terrainShoreAlbedo("textures/shore_diff_2k.jpg",  TextureGL::LINEAR, TextureGL::REPEAT)
+    , terrainShoreRough ("textures/shore_rough_2k.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
+    , terrainGrassAlbedo("textures/grass_diff_2k.jpg",  TextureGL::LINEAR, TextureGL::REPEAT)
+    , terrainGrassRough ("textures/grass_rough_2k.jpg", TextureGL::LINEAR, TextureGL::REPEAT, false)
+    , terrainRockAlbedo ("textures/rock_diff_2k.jpg",   TextureGL::LINEAR, TextureGL::REPEAT)
+    , terrainRockRough  ("textures/rock_rough_2k.jpg",  TextureGL::LINEAR, TextureGL::REPEAT, false)
+    , terrainSnowAlbedo ("textures/snow_diff_2k.jpg",   TextureGL::LINEAR, TextureGL::REPEAT)
+    , terrainSnowRough  ("textures/snow_rough_2k.jpg",  TextureGL::LINEAR, TextureGL::REPEAT, false)
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
     {
@@ -785,9 +800,10 @@ void HW1::Work()
     static constexpr GLuint U_TRANSFORM_NORMAL = 3;
     static constexpr GLuint U_VERTEX_HEIGHT_SCALE = 4;
     // Fragment
-    static constexpr GLuint U_MODE = 0;
-    static constexpr GLuint U_RANGE = 1;
+    static constexpr GLuint U_MODE      = 0;
+    static constexpr GLuint U_RANGE     = 1;
     static constexpr GLuint U_LIGHT_POS = 2;
+    static constexpr GLuint U_TEX_SCALE = 3;
 
     // glActiveShaderProgram makes "glUniform" family of commands
     // to effect the selected shader
@@ -804,19 +820,59 @@ void HW1::Work()
         glUniformMatrix3fv(U_TRANSFORM_NORMAL, 1, false, glm::value_ptr(normalMatrix));
         glUniform1f(U_VERTEX_HEIGHT_SCALE, state.heightScale);
     }
+    // Bind terrain albedo textures: shore=0, grass=1, rock=2, snow=3
+    glActiveTexture(GL_TEXTURE0); glBindTexture(GL_TEXTURE_2D, terrainShoreAlbedo.textureId);
+    glActiveTexture(GL_TEXTURE1); glBindTexture(GL_TEXTURE_2D, terrainGrassAlbedo.textureId);
+    glActiveTexture(GL_TEXTURE2); glBindTexture(GL_TEXTURE_2D, terrainRockAlbedo.textureId);
+    glActiveTexture(GL_TEXTURE3); glBindTexture(GL_TEXTURE_2D, terrainSnowAlbedo.textureId);
+
     // Fragment shader
     glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, fShader.shaderId);
     glActiveShaderProgram(state.renderPipeline, fShader.shaderId);
     {
-        glUniform1ui(U_MODE, state.mode);
-        glUniform2fv(U_RANGE, 1, glm::value_ptr(terrainMesh.yMinMax));
+        glUniform1ui(U_MODE,      state.mode);
+        glUniform2fv(U_RANGE,     1, glm::value_ptr(terrainMesh.yMinMax));
         glUniform3fv(U_LIGHT_POS, 1, glm::value_ptr(state.lightPos));
+        glUniform1f (U_TEX_SCALE, 1.0f / 25.0f);
     }
     // Bind VAO
     glBindVertexArray(terrainMesh.vaoId);
     // Draw call!
     glDrawElements(GL_TRIANGLES, terrainMesh.indexCount, GL_UNSIGNED_INT, nullptr);
     glBindVertexArray(0);
+
+    // Water plane: cosine wave animation, HDR reflection
+    {
+        static constexpr GLuint WU_MODEL   = 0;
+        static constexpr GLuint WU_VIEW    = 1;
+        static constexpr GLuint WU_PROJ    = 2;
+        static constexpr GLuint WU_NORMAL  = 3;
+        static constexpr GLuint WU_TIME    = 4;
+        static constexpr GLuint WU_CAM_POS = 2;
+
+        glm::mat4x4 waterModel = glm::translate(glm::identity<glm::mat4x4>(),
+                                                glm::vec3(0.0f, -30.0f, 0.0f));
+        glm::mat3x3 waterNormal = glm::inverseTranspose(glm::mat3(waterModel));
+
+        glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT,   waterVert.shaderId);
+        glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, waterFrag.shaderId);
+
+        glActiveShaderProgram(state.renderPipeline, waterVert.shaderId);
+        glUniformMatrix4fv(WU_MODEL,  1, false, glm::value_ptr(waterModel));
+        glUniformMatrix4fv(WU_VIEW,   1, false, glm::value_ptr(view));
+        glUniformMatrix4fv(WU_PROJ,   1, false, glm::value_ptr(proj));
+        glUniformMatrix3fv(WU_NORMAL, 1, false, glm::value_ptr(waterNormal));
+        glUniform1f(WU_TIME, float(currentTime));
+
+        glActiveShaderProgram(state.renderPipeline, waterFrag.shaderId);
+        glUniform3fv(WU_CAM_POS, 1, glm::value_ptr(cameraPos));
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, skyHDR.textureId);
+
+        glBindVertexArray(waterMesh.vaoId);
+        glDrawElements(GL_TRIANGLES, waterMesh.indexCount, GL_UNSIGNED_INT, nullptr);
+        glBindVertexArray(0);
+    }
 
     DrawPlane(view, proj, cameraPos);
 

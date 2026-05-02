@@ -1,90 +1,72 @@
 #version 430
-/*
-	File Name	: color.vert
-	Author		: Bora Yalciner
-	Description	:
 
-		Basic fragment shader that just outputs
-		color to the FBO
-*/
-
-// Definitions
-// These locations must match between vertex/fragment shaders
-#define IN_NORMAL	layout(location = 0)
-#define IN_HEIGHT	layout(location = 1)
-#define IN_POS		layout(location = 2)
-
-// This output must match to the COLOR_ATTACHMENTi (where 'i' is this location)
-#define OUT_FBO		layout(location = 0)
-
-// This must match GL_TEXTUREi (where 'i' is this binding)
-//#define T_ALBEDO	layout(binding = 0)
-
-// This must match the first parameter of glUniform...() calls
-#define U_MODE		layout(location = 0)
-#define U_RANGE		layout(location = 1)
+#define IN_NORMAL   layout(location = 0)
+#define IN_HEIGHT   layout(location = 1)
+#define IN_POS      layout(location = 2)
+#define OUT_FBO     layout(location = 0)
+#define U_MODE      layout(location = 0)
+#define U_RANGE     layout(location = 1)
 #define U_LIGHT_POS layout(location = 2)
+#define U_TEX_SCALE layout(location = 3)
 
-// Input
 in IN_NORMAL vec3  fNormal;
 in IN_HEIGHT float fHeight;
-in IN_POS	 vec3  fWorldPos;
+in IN_POS    vec3  fWorldPos;
 
-// Output
-// This parameter goes to the framebuffer
 out OUT_FBO vec4 fboColor;
 
-// Uniforms
-U_MODE uniform uint uMode;
-U_RANGE uniform vec2 yRange;
-U_LIGHT_POS uniform vec3 lPos;
+U_MODE      uniform uint  uMode;
+U_RANGE     uniform vec2  yRange;
+U_LIGHT_POS uniform vec3  lPos;
+U_TEX_SCALE uniform float texScale;
 
-// Textures
-// No textures
-
-const uint TERRAIN_GRADIENT_COUNT = 5;
-const vec3 TERRAIN_COLORS[TERRAIN_GRADIENT_COUNT + 1] =
-{
-	vec3(0.229, 0.765, 0.049),	// Green
-	vec3(0.329, 0.565, 0.149),	// Green
-	vec3(0.666, 0.424, 0.027),	// Brown
-	vec3(0.478, 0.227, 0.027),	// Brown
-	vec3(1.000, 1.000, 1.000),  // Snow
-	vec3(1.000, 1.000, 1.000)   // Duplicated to skip bounds check
-};
+layout(binding = 0) uniform sampler2D shoreAlbedo;
+layout(binding = 1) uniform sampler2D grassAlbedo;
+layout(binding = 2) uniform sampler2D rockAlbedo;
+layout(binding = 3) uniform sampler2D snowAlbedo;
 
 void main(void)
 {
-	// Terrain color calculation
-	float colorTexel = fHeight - yRange[0];
-	colorTexel /= yRange[1] - yRange[0];
-	colorTexel = clamp(colorTexel, 0, 1);		 // 0-1
-	colorTexel *= float(TERRAIN_GRADIENT_COUNT); // 0-N
+    vec3 N  = normalize(fNormal);
+    vec2 uv = fWorldPos.xz * texScale;
 
-	uint colorIndex = uint(colorTexel);
-	float frac = colorTexel - floor(colorTexel);
-	vec3 color = mix(TERRAIN_COLORS[colorIndex],
-				     TERRAIN_COLORS[colorIndex + 1], frac);
+    float elevation = clamp((fHeight - yRange.x) / (yRange.y - yRange.x), 0.0, 1.0);
+    float slope     = 1.0 - clamp(N.y, 0.0, 1.0);
 
-	// Shading (Lambertian Diffuse)
-	vec3 lDir = normalize(lPos - fWorldPos);
-	float factor = clamp(dot(fNormal, lDir), 0, 1);
-	factor += 0.1; // Ambient term
+    float snowW  = smoothstep(0.72, 0.88, elevation);
+    float rockW  = smoothstep(0.25, 0.55, slope) * (1.0 - snowW);
+    float shoreW = smoothstep(0.18, 0.04, elevation) * (1.0 - snowW) * (1.0 - rockW);
+    float grassW = max(0.0, 1.0 - snowW - rockW - shoreW);
 
-	uint mode = uMode;
-	switch(mode)
-	{
-		// Shaded
-		case 0: fboColor = vec4(color * factor, 1); break;
-		// Terrain Colors
-		case 1: fboColor = vec4(color, 1); break;
-		// Vertex Normals. Normal axes; by definition, is between [-1, 1])
-		// Color is in between [0, 1]) so we adjust here for that
-		case 2: fboColor = vec4((fNormal + 1) * 0.5, 1); break;
-		// Texture Mapping without shading.
-		//case 3: fboColor = texture2D(tAlbedo, fUV); break;
-		// If mode is wrong, put pure white.
-		default: fboColor = vec4(1); break;
-	}
-	fboColor.a = log(dot(fboColor.rgb, vec3(0.2126, 0.7152, 0.0722)) + 1e-5);
+    vec3 albedo = shoreW * texture(shoreAlbedo, uv).rgb
+                + grassW * texture(grassAlbedo, uv).rgb
+                + rockW  * texture(rockAlbedo,  uv).rgb
+                + snowW  * texture(snowAlbedo,  uv).rgb;
+
+    vec3  lDir        = normalize(lPos - fWorldPos);
+    float diff        = max(dot(N, lDir), 0.0);
+    vec3  shadedColor = albedo * (0.15 + diff * 0.85);
+
+    // Debug gradient colors (mode 1)
+    const uint GRADIENT_COUNT = 5u;
+    const vec3 GRADIENT_COLORS[6] = vec3[](
+        vec3(0.229, 0.765, 0.049),
+        vec3(0.329, 0.565, 0.149),
+        vec3(0.666, 0.424, 0.027),
+        vec3(0.478, 0.227, 0.027),
+        vec3(1.000, 1.000, 1.000),
+        vec3(1.000, 1.000, 1.000)
+    );
+    float t         = elevation * float(GRADIENT_COUNT);
+    uint  gi        = uint(t);
+    vec3  gradColor = mix(GRADIENT_COLORS[gi], GRADIENT_COLORS[gi + 1u], fract(t));
+
+    switch(uMode)
+    {
+        case 0:  fboColor = vec4(shadedColor, 1.0); break;
+        case 1:  fboColor = vec4(gradColor * (diff + 0.1), 1.0); break;
+        case 2:  fboColor = vec4((N + 1.0) * 0.5, 1.0); break;
+        default: fboColor = vec4(1.0); break;
+    }
+    fboColor.a = log(dot(fboColor.rgb, vec3(0.2126, 0.7152, 0.0722)) + 1e-5);
 }

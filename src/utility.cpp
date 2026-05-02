@@ -227,6 +227,89 @@ ShaderGL::ShaderGL(Type t, const std::string& path)
                 shaderTypeStr, path.c_str());
 }
 
+MeshGL::MeshGL(const PlaneGenParams& params)
+{
+    uint32_t nx = params.vertexCount[0];
+    uint32_t nz = params.vertexCount[1];
+    assert(nx >= 2 && nz >= 2);
+
+    uint32_t vertexCount = nx * nz;
+    uint32_t indexCount  = (nx - 1) * (nz - 1) * 6;
+
+    std::vector<glm::vec3> positions(vertexCount);
+    std::vector<glm::vec3> normals(vertexCount, glm::vec3(0.0f, 1.0f, 0.0f));
+    std::vector<glm::vec2> uvs(vertexCount);
+    std::vector<uint32_t>  indices(indexCount);
+
+    for(uint32_t j = 0; j < nz; j++)
+    for(uint32_t i = 0; i < nx; i++)
+    {
+        float u = float(i) / float(nx - 1);
+        float v = float(j) / float(nz - 1);
+        float x = params.rangeX[0] + u * (params.rangeX[1] - params.rangeX[0]);
+        float z = params.rangeZ[0] + v * (params.rangeZ[1] - params.rangeZ[0]);
+        uint32_t idx = j * nx + i;
+        positions[idx] = glm::vec3(x, 0.0f, z);
+        uvs[idx]       = glm::vec2(u, v);
+    }
+
+    uint32_t wi = 0;
+    for(uint32_t j = 0; j < nz - 1; j++)
+    for(uint32_t i = 0; i < nx - 1; i++)
+    {
+        uint32_t tl = j * nx + i;
+        uint32_t tr = tl + 1;
+        uint32_t bl = tl + nx;
+        uint32_t br = bl + 1;
+        indices[wi++] = tl; indices[wi++] = bl; indices[wi++] = tr;
+        indices[wi++] = tr; indices[wi++] = bl; indices[wi++] = br;
+    }
+
+    std::array<size_t, 3> sizes = {};
+    sizes[0] = positions.size() * sizeof(glm::vec3);
+    sizes[1] = normals.size()   * sizeof(glm::vec3);
+    sizes[2] = uvs.size()       * sizeof(glm::vec2);
+
+    std::array<size_t, 4> offsets = {};
+    offsets[0] = 0;
+    for(uint32_t i = 1; i < 4; i++)
+    {
+        size_t aligned = (sizes[i - 1] + 255) / 256 * 256;
+        offsets[i] = offsets[i - 1] + aligned;
+    }
+
+    glGenBuffers(1, &vBufferId);
+    glBindBuffer(GL_ARRAY_BUFFER, vBufferId);
+    glBufferStorage(GL_ARRAY_BUFFER, GLintptr(offsets.back()), nullptr, GL_DYNAMIC_STORAGE_BIT);
+    glBufferSubData(GL_ARRAY_BUFFER, GLintptr(offsets[0]), GLsizei(sizes[0]), positions.data());
+    glBufferSubData(GL_ARRAY_BUFFER, GLintptr(offsets[1]), GLsizei(sizes[1]), normals.data());
+    glBufferSubData(GL_ARRAY_BUFFER, GLintptr(offsets[2]), GLsizei(sizes[2]), uvs.data());
+
+    glGenBuffers(1, &iBufferId);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iBufferId);
+    glBufferStorage(GL_ELEMENT_ARRAY_BUFFER, GLsizei(indices.size() * sizeof(uint32_t)),
+                    indices.data(), GL_DYNAMIC_STORAGE_BIT);
+
+    glGenVertexArrays(1, &vaoId);
+    glBindVertexArray(vaoId);
+    glEnableVertexAttribArray(0);
+    glVertexAttribFormat(0, 3, GL_FLOAT, false, 0);
+    glVertexAttribBinding(0, IN_POS);
+    glEnableVertexAttribArray(1);
+    glVertexAttribFormat(1, 3, GL_FLOAT, false, 0);
+    glVertexAttribBinding(1, IN_NORMAL);
+    glEnableVertexAttribArray(2);
+    glVertexAttribFormat(2, 2, GL_FLOAT, false, 0);
+    glVertexAttribBinding(2, IN_UV);
+    glBindVertexBuffer(0, vBufferId, GLintptr(offsets[0]), GLsizei(sizeof(glm::vec3)));
+    glBindVertexBuffer(1, vBufferId, GLintptr(offsets[1]), GLsizei(sizeof(glm::vec3)));
+    glBindVertexBuffer(2, vBufferId, GLintptr(offsets[2]), GLsizei(sizeof(glm::vec2)));
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, iBufferId);
+    glBindVertexArray(0);
+
+    this->indexCount = uint32_t(indices.size());
+}
+
 // For mesh multiple index hashing
 struct ObjKeyType
 {

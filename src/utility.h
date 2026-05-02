@@ -88,7 +88,7 @@ struct GLState
     glm::vec3 lightPos = glm::vec3(10, 6, 50);
 
     // Render mode
-    uint32_t mode = 1;
+    uint32_t mode = 0;
 
     // Plane state
     glm::vec3 planePos   = glm::vec3(0, 20, 0);

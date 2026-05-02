@@ -81,16 +81,28 @@ struct HW1
     ShaderGL    skyVert;
     ShaderGL    skyFrag;
     ShaderGL    glassFrag;
+    ShaderGL    waterVert;
+    ShaderGL    waterFrag;
     //
     MeshGL      planeMeshBody;
     MeshGL      planeMeshHelix;
     MeshGL      planeMeshGlass;
     MeshGL      planeMeshCable;
+    MeshGL      waterMesh;
     TextureGL   planeBaseAlbedo;     // used by body and cables
     TextureGL   planeBaseRoughness;  // used by body and cables
     TextureGL   planeHelixAlbedo;    // used by helix
     TextureGL   planeHelixRoughness; // used by helix
     TextureGL   skyHDR;
+    // Terrain textures (shore, grass, rock, snow)
+    TextureGL   terrainShoreAlbedo;
+    TextureGL   terrainShoreRough;
+    TextureGL   terrainGrassAlbedo;
+    TextureGL   terrainGrassRough;
+    TextureGL   terrainRockAlbedo;
+    TextureGL   terrainRockRough;
+    TextureGL   terrainSnowAlbedo;
+    TextureGL   terrainSnowRough;
     //
     float       helixAngle = 0.0f;
     double      prevTime   = 0.0;
