@@ -78,6 +78,8 @@ struct HW1
     ShaderGL    tonemapFrag;
     ShaderGL    planeVert;
     ShaderGL    planeFrag;
+    ShaderGL    skyVert;
+    ShaderGL    skyFrag;
     //
     MeshGL      planeMeshBody;
     MeshGL      planeMeshHelix;
@@ -85,6 +87,7 @@ struct HW1
     MeshGL      planeMeshCable;
     TextureGL   planeBaseAlbedo;   // used by body and cables
     TextureGL   planeHelixAlbedo;  // used by helix
+    TextureGL   skyHDR;
     //
     float       helixAngle = 0.0f;
     double      prevTime   = 0.0;

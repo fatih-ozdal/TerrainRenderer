@@ -552,12 +552,15 @@ HW1::HW1(ThreadPool& threadPool,
     , tonemapFrag(ShaderGL::FRAGMENT, "shaders/tonemap.frag")
     , planeVert(ShaderGL::VERTEX, "shaders/plane.vert")
     , planeFrag(ShaderGL::FRAGMENT, "shaders/plane.frag")
+    , skyVert(ShaderGL::VERTEX, "shaders/sky.vert")
+    , skyFrag(ShaderGL::FRAGMENT, "shaders/sky.frag")
     , planeMeshBody("meshes/plane_body.obj")
     , planeMeshHelix("meshes/plane_helix.obj")
     , planeMeshGlass("meshes/plane_glass.obj")
     , planeMeshCable("meshes/plane_cable.obj")
     , planeBaseAlbedo("textures/plane_base_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
     , planeHelixAlbedo("textures/plane_helix_albedo.jpg", TextureGL::LINEAR, TextureGL::REPEAT)
+    , skyHDR("textures/citrus_orchard_puresky_2k.hdr", TextureGL::LINEAR, TextureGL::REPEAT, false)
     , terrainDTED("geo/n36_e029_1arc_v3.dt2")
     , params
     {
@@ -695,12 +698,41 @@ void HW1::Work()
             RecreateHDRFBO(int(newSize[0]), int(newSize[1]));
     }
 
-    // Terrain pass: render into HDR FBO
+    // HDR FBO pass
     glBindFramebuffer(GL_FRAMEBUFFER, hdrFboId);
     glViewport(0, 0,
                state.curWndParams.fbSize[0],
                state.curWndParams.fbSize[1]);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+    // Sky: draw first, no depth writes so terrain/plane overwrite it
+    {
+        static constexpr GLuint U_INV_PROJ     = 0;
+        static constexpr GLuint U_INV_VIEW_ROT = 1;
+
+        glm::mat4x4 invProj    = glm::inverse(proj);
+        glm::mat3x3 invViewRot = glm::transpose(glm::mat3(view)); // view rotation is orthonormal
+
+        glDisable(GL_DEPTH_TEST);
+        glDepthMask(GL_FALSE);
+        glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+
+        glUseProgramStages(state.renderPipeline, GL_VERTEX_SHADER_BIT,   skyVert.shaderId);
+        glUseProgramStages(state.renderPipeline, GL_FRAGMENT_SHADER_BIT, skyFrag.shaderId);
+        glActiveShaderProgram(state.renderPipeline, skyFrag.shaderId);
+        glUniformMatrix4fv(U_INV_PROJ,     1, false, glm::value_ptr(invProj));
+        glUniformMatrix3fv(U_INV_VIEW_ROT, 1, false, glm::value_ptr(invViewRot));
+
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, skyHDR.textureId);
+
+        glBindVertexArray(fullscreenVao);
+        glDrawElements(GL_TRIANGLES, 6, GL_UNSIGNED_INT, nullptr);
+        glBindVertexArray(0);
+
+        glEnable(GL_DEPTH_TEST);
+    }
+
     glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, state.wireframe ? GL_LINE : GL_FILL);
 
