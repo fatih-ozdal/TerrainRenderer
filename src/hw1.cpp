@@ -662,21 +662,15 @@ void HW1::DrawPlane(const glm::mat4x4& view, const glm::mat4x4& proj, const glm:
         glBindVertexArray(0);
     };
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, planeBaseRoughness.textureId);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
     drawComponent(planeMeshBody, glm::identity<glm::mat4x4>());
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, planeHelixRoughness.textureId);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeHelixAlbedo.textureId);
     drawComponent(planeMeshHelix, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 0.0f, 13.719f))
                                 * glm::rotate(glm::identity<glm::mat4x4>(), helixAngle, glm::vec3(0.0f, 0.0f, 1.0f)));
 
-    glActiveTexture(GL_TEXTURE2);
-    glBindTexture(GL_TEXTURE_2D, planeBaseRoughness.textureId);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, planeBaseAlbedo.textureId);
     drawComponent(planeMeshCable, glm::translate(glm::identity<glm::mat4x4>(), glm::vec3(0.0f, 3.644f, -10.638f)));

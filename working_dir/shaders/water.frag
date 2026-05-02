@@ -28,7 +28,7 @@ void main()
     vec3 R = reflect(-V, N);
 
     // Sharp reflection (smooth water surface)
-    vec3 envSpec = textureLod(skyTex, equirectUV(R), 0.5).rgb;
+    vec3 envSpec = textureLod(skyTex, equirectUV(R), 0.0).rgb;
 
     // Fresnel for water: F0 = 0.02 (slightly lower than glass)
     float cosTheta = clamp(dot(V, N), 0.0, 1.0);

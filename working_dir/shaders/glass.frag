@@ -5,7 +5,6 @@
 
 in vec3 fNormal;
 in vec3 fWorldPos;
-in vec2 fUV;
 
 out OUT_FBO vec4 fboColor;
 
@@ -28,16 +27,11 @@ void main()
     vec3 V = normalize(camPos - fWorldPos);
     vec3 R = reflect(-V, N);
 
-    vec3 envColor = textureLod(skyTex, equirectUV(R), 0.0).rgb;
+    vec3 envColor  = textureLod(skyTex, equirectUV(R), 0.0).rgb;
+    vec3 glassTint = vec3(0.05, 0.08, 0.15);
 
-    // Fresnel-Schlick
-    float cosTheta = clamp(dot(V, N), 0.0, 1.0);
-    float fresnel  = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
-
-    // Blue-gray tint at face-on, sky reflection at grazing
-    vec3 glassTint = vec3(0.2, 0.3, 0.5);
-    vec3 color = mix(glassTint, envColor, fresnel);
-
-    float lum  = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    fboColor   = vec4(color, log(max(lum, 1e-5)));
+    // Mostly reflection with a dark blue-gray tint
+    vec3  color = mix(glassTint, envColor, 0.9);
+    float lum   = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    fboColor    = vec4(color, log(max(lum, 1e-5)));
 }

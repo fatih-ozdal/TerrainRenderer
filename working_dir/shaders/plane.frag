@@ -12,7 +12,6 @@ out OUT_FBO vec4 fboColor;
 
 layout(binding = 0) uniform sampler2D albedo;
 layout(binding = 1) uniform sampler2D skyTex;
-layout(binding = 2) uniform sampler2D roughnessTex;
 
 U_LIGHT_POS uniform vec3 lPos;
 U_CAM_POS   uniform vec3 camPos;
@@ -32,25 +31,14 @@ void main()
     vec3 V = normalize(camPos - fWorldPos);
     vec3 R = reflect(-V, N);
 
-    vec3  albedoColor = texture(albedo, fUV).rgb;
-    float roughness   = texture(roughnessTex, fUV).r;
+    vec3  baseColor = texture(albedo, fUV).rgb;
+    vec3  envColor  = textureLod(skyTex, equirectUV(R), 0.0).rgb;
 
-    // IBL diffuse: blurred sky at normal direction
-    vec3 envDiffuse = textureLod(skyTex, equirectUV(N), 4.0).rgb;
-
-    // IBL specular: mip level from roughness (rough=blurry, smooth=sharp)
-    vec3 envSpec = textureLod(skyTex, equirectUV(R), roughness * 6.0).rgb;
-
-    // Fresnel scaled down by roughness^2 (rough surfaces lose specularity)
-    float cosTheta   = clamp(dot(V, N), 0.0, 1.0);
-    float fresnel    = 0.04 + 0.96 * pow(1.0 - cosTheta, 5.0);
-    float specWeight = fresnel * (1.0 - roughness * roughness);
-
-    // Point light diffuse
     vec3  lDir = normalize(lPos - fWorldPos);
-    float diff = clamp(dot(N, lDir), 0.0, 1.0);
+    float diff = max(dot(N, lDir), 0.0);
 
-    vec3 color = albedoColor * (envDiffuse + diff * 0.3) + envSpec * specWeight * 0.4;
-    float lum  = dot(color, vec3(0.2126, 0.7152, 0.0722));
-    fboColor   = vec4(color, log(max(lum, 1e-5)));
+    // Mostly diffuse, small environment reflection on top
+    vec3  color = mix(baseColor * (0.2 + diff * 0.8), envColor, 0.05);
+    float lum   = dot(color, vec3(0.2126, 0.7152, 0.0722));
+    fboColor    = vec4(color, log(max(lum, 1e-5)));
 }
